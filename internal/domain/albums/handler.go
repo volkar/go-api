@@ -1,0 +1,248 @@
+package albums
+
+import (
+	"api/internal/domain/albums/albumtypes"
+	"api/internal/domain/tokens"
+	"api/internal/platform/request"
+	"api/internal/platform/response"
+	"net/http"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
+)
+
+type Handler struct {
+	albums    *Service
+	response  *response.Response
+	validator *validator.Validate
+}
+
+func NewHandler(service *Service, response *response.Response, val *validator.Validate) *Handler {
+	return &Handler{
+		albums:    service,
+		response:  response,
+		validator: val,
+	}
+}
+
+/* Get authenticated user's album list */
+func (h *Handler) CurrentAvailableList(w http.ResponseWriter, r *http.Request) {
+	// Get claims from context
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+	// Get owned list of albums
+	albums, err := h.albums.ListAvailable(r.Context(), claims.UserID, claims.Email, true)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+	h.response.SuccessDataOnly(w, r, albums)
+}
+
+/* Get authenticated user's list of deleted albums */
+func (h *Handler) CurrentDeletedList(w http.ResponseWriter, r *http.Request) {
+	// Get claims from context
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+	// Get list of deleted albums
+	albums, err := h.albums.ListDeleted(r.Context(), claims.UserID)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+	h.response.SuccessDataOnly(w, r, albums)
+}
+
+/* Get available album by user slug and album slug */
+func (h *Handler) GetAvailable(w http.ResponseWriter, r *http.Request) {
+	userSlug := chi.URLParam(r, "user_slug")
+	albumSlug := chi.URLParam(r, "album_slug")
+
+	// Get claims from context
+	claims, _ := tokens.GetClaimsFromContext(r.Context())
+	// Get available album
+	a, err := h.albums.GetAvailable(r.Context(), userSlug, albumSlug, claims.UserID, claims.Email)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+
+	// Map to public album for response
+	album := ToPublic(a)
+
+	h.response.SuccessDataOnly(w, r, album)
+}
+
+/* Create album */
+func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+	// Get user claims
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+
+	// JSON decode
+	input := struct {
+		Title  string            `json:"title" validate:"required,min=2,max=255"`
+		Atlas  albumtypes.Atlas  `json:"atlas" validate:"required,min=1,dive"`
+		Access albumtypes.Access `json:"access" validate:"required"`
+		Slug   string            `json:"slug" validate:"required,min=2,max=255,slug"`
+		DateAt time.Time         `json:"date_at" validate:"required"`
+	}{}
+	if err := request.DecodeJSONBody(w, r, &input); err != nil {
+		h.response.Error(w, r, response.ErrBadJSON.Wrap(err))
+		return
+	}
+
+	// Validate input
+	if err := h.validator.Struct(&input); err != nil {
+		h.response.ValidationError(w, r, err)
+		return
+	}
+
+	// Create album
+	album, err := h.albums.Create(r.Context(), claims.UserID, input.Title, input.Slug, input.Atlas, input.Access, input.DateAt)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+
+	h.response.SuccessWithData(w, r, response.SuccessAlbumCreated, album)
+}
+
+/* Update album */
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+	// Get user claims
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+
+	// Album id from url
+	idStr := chi.URLParam(r, "uuid")
+	albumID, err := uuid.Parse(idStr)
+	if err != nil {
+		h.response.Error(w, r, response.ErrBadUUID.Wrap(err))
+		return
+	}
+
+	// JSON decode
+	input := struct {
+		Title    string            `json:"title" validate:"required,min=2,max=255"`
+		Atlas    albumtypes.Atlas  `json:"atlas" validate:"required,min=1,dive"`
+		Access   albumtypes.Access `json:"access" validate:"required"`
+		Slug     string            `json:"slug" validate:"required,min=2,max=255,slug"`
+		DateAt   time.Time         `json:"date_at" validate:"required"`
+		IsActive bool              `json:"is_active"`
+	}{}
+	if err := request.DecodeJSONBody(w, r, &input); err != nil {
+		h.response.Error(w, r, response.ErrBadJSON.Wrap(err))
+		return
+	}
+
+	// Validate input
+	if err := h.validator.Struct(&input); err != nil {
+		h.response.ValidationError(w, r, err)
+		return
+	}
+
+	// Update album
+	album, err := h.albums.Update(r.Context(), claims.UserID, albumID, input.Title, input.Slug, input.Atlas, input.Access, input.DateAt, input.IsActive)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+
+	h.response.SuccessWithData(w, r, response.SuccessAlbumUpdated, album)
+}
+
+/* Delete album */
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	// Parse UUID
+	idStr := chi.URLParam(r, "uuid")
+	albumID, err := uuid.Parse(idStr)
+	if err != nil {
+		h.response.Error(w, r, response.ErrBadUUID.Wrap(err))
+		return
+	}
+
+	// Get user claims
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+
+	// Delete album
+	_, err = h.albums.Delete(r.Context(), claims.UserID, albumID)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+
+	h.response.Success(w, r, response.SuccessAlbumDeleted)
+}
+
+/* Restore deleted album */
+func (h *Handler) Restore(w http.ResponseWriter, r *http.Request) {
+	// Parse UUID
+	idStr := chi.URLParam(r, "uuid")
+	albumID, err := uuid.Parse(idStr)
+	if err != nil {
+		h.response.Error(w, r, response.ErrBadUUID.Wrap(err))
+		return
+	}
+
+	// Get user claims
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+
+	// Restore deleted album
+	_, err = h.albums.Restore(r.Context(), claims.UserID, albumID)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+
+	h.response.Success(w, r, response.SuccessAlbumRestored)
+}
+
+/* Purge deleted album */
+func (h *Handler) Purge(w http.ResponseWriter, r *http.Request) {
+	// Parse UUID
+	idStr := chi.URLParam(r, "uuid")
+	albumID, err := uuid.Parse(idStr)
+	if err != nil {
+		h.response.Error(w, r, response.ErrBadUUID.Wrap(err))
+		return
+	}
+
+	// Get user claims
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+
+	// Purge deleted album
+	_, err = h.albums.Purge(r.Context(), claims.UserID, albumID)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+
+	h.response.Success(w, r, response.SuccessAlbumPurged)
+}

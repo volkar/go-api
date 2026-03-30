@@ -1,0 +1,75 @@
+package main
+
+import (
+	"api/internal/platform/ratelimit"
+	"fmt"
+
+	"github.com/go-chi/chi/v5"
+)
+
+const ProviderRegex = `[a-zA-Z0-9]{2,20}`
+const SlugRegex = `[a-zA-Z0-9_-]{1,255}`
+const UUIDRegex = `[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}`
+
+func (app *app) Routes(r *chi.Mux) {
+	// "Auth" rate limit
+	r.Group(func(r chi.Router) {
+		r.Use(app.RateLimit(ratelimit.RuleAuth))
+		// Authentication routes
+		r.Get(fmt.Sprintf("/auth/{provider:%s}/provider", ProviderRegex), app.authHandler.OAuthProvider)
+		r.Get(fmt.Sprintf("/auth/{provider:%s}/callback", ProviderRegex), app.authHandler.OAuthCallback)
+		r.Post("/auth/logout", app.authHandler.Logout)
+		r.Group(func(r chi.Router) {
+			r.Use(app.RequireAuthentication)
+			// Auth user only
+			r.Post("/auth/logout-others", app.authHandler.TerminateOtherSessions)
+		})
+	})
+
+	// "Refresh" rate limit
+	r.Group(func(r chi.Router) {
+		r.Use(app.RateLimit(ratelimit.RuleRefresh))
+		r.Post("/auth/refresh", app.authHandler.RefreshSession)
+	})
+
+	// "Get" rate limit
+	r.Group(func(r chi.Router) {
+		r.Use(app.RateLimit(ratelimit.RuleGet))
+		// Health
+		r.Get("/health", app.healthHandler)
+		// Me (authenticated user)
+		r.Get("/me/info", app.usersHandler.CurrentInfo)
+		r.Get("/me/list", app.albumsHandler.CurrentAvailableList)
+		r.Get("/me/deleted", app.albumsHandler.CurrentDeletedList)
+		// Users
+		r.Get(fmt.Sprintf("/users/{slug:%s}/profile", SlugRegex), app.usersHandler.Profile)
+		r.Get(fmt.Sprintf("/users/{slug:%s}/list", SlugRegex), app.usersHandler.AlbumList)
+		r.Get(fmt.Sprintf("/users/{slug:%s}/info", SlugRegex), app.usersHandler.Info)
+		// Albums
+		r.Get(fmt.Sprintf("/albums/{user_slug:%s}/{album_slug:%s}", SlugRegex, SlugRegex), app.albumsHandler.GetAvailable)
+	})
+
+	// "Modify" rate limit, authentication required
+	r.Group(func(r chi.Router) {
+		r.Use(app.RateLimit(ratelimit.RuleModify))
+		r.Use(app.RequireAuthentication)
+		// Users
+		r.Put(fmt.Sprintf("/users/{uuid:%s}", UUIDRegex), app.usersHandler.Update)
+		r.Delete(fmt.Sprintf("/users/{uuid:%s}", UUIDRegex), app.usersHandler.Delete)
+		// Albums
+		r.Post("/albums", app.albumsHandler.Create)
+		r.Put(fmt.Sprintf("/albums/{uuid:%s}", UUIDRegex), app.albumsHandler.Update)
+		r.Delete(fmt.Sprintf("/albums/{uuid:%s}", UUIDRegex), app.albumsHandler.Delete)
+		r.Post(fmt.Sprintf("/albums/{uuid:%s}/restore", UUIDRegex), app.albumsHandler.Restore)
+		r.Delete(fmt.Sprintf("/albums/{uuid:%s}/purge", UUIDRegex), app.albumsHandler.Purge)
+	})
+
+	// "Admin" rate limit. Admin role required
+	r.Group(func(r chi.Router) {
+		r.Use(app.RateLimit(ratelimit.RuleAdmin))
+		r.Use(app.RequireRole("admin"))
+		// Admin routes
+		r.Post(fmt.Sprintf("/admin/users/{uuid:%s}/restore", UUIDRegex), app.adminHandler.RestoreUser)
+		r.Delete(fmt.Sprintf("/admin/users/{uuid:%s}", UUIDRegex), app.adminHandler.PurgeUser)
+	})
+}
