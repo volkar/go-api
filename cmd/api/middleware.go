@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,6 +21,12 @@ type responseRecorder struct {
 	http.ResponseWriter
 	body   *bytes.Buffer
 	status int
+}
+
+var bufferPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
 }
 
 func (r *responseRecorder) Write(b []byte) (int, error) {
@@ -32,10 +39,17 @@ func (r *responseRecorder) WriteHeader(status int) {
 
 func (app *app) ETagChecker(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Borrow buffer from pool
+		buf := bufferPool.Get().(*bytes.Buffer)
+		buf.Reset()
+
+		// Defer returning the buffer to the pool
+		defer bufferPool.Put(buf)
+
 		// Response recorder
 		recorder := &responseRecorder{
 			ResponseWriter: w,
-			body:           new(bytes.Buffer),
+			body:           buf,
 			status:         http.StatusOK,
 		}
 

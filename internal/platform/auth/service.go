@@ -110,10 +110,18 @@ func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken string
 
 	// Check if token is consumed
 	if oldToken.IsConsumed {
-		// Reuse detected. Possible token stealing. Delete all refresh tokens
+		// Calculate time since the token was marked as consumed
+		timeSinceConsumption := time.Since(oldToken.UpdatedAt.Time)
+
+		// 5-second grace period for network retries
+		if timeSinceConsumption < 5*time.Second {
+			return "", "", response.ErrTokenConsumed
+		}
+
+		// Real reuse detected outside grace period. Possible token stealing.
+		// Invalidate all refresh tokens for this user.
 		s.tokens.DeleteAllRefreshForUser(ctx, oldToken.UserID)
-		// Log it
-		s.logger.Warn("Potential refresh token reuse detected", "user_id", oldToken.UserID, "reason", "Token already consumed")
+		s.logger.Warn("Potential refresh token reuse detected", "user_id", oldToken.UserID, "reason", "Token already consumed outside grace period")
 
 		return "", "", response.ErrTokenConsumed
 	}
