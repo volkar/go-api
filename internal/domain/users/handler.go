@@ -7,6 +7,7 @@ import (
 	"api/internal/platform/request"
 	"api/internal/platform/response"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -29,32 +30,22 @@ func NewHandler(service *Service, response *response.Response, val *validator.Va
 	}
 }
 
-/* Get user profile by user slug */
-func (h *Handler) Profile(w http.ResponseWriter, r *http.Request) {
-	userSlug := chi.URLParam(r, "slug")
-	// Get claims from context
-	claims, _ := tokens.GetClaimsFromContext(r.Context())
-	// Get profile
-	p, err := h.users.Profile(r.Context(), userSlug, claims.UserID, claims.Email)
-	if err != nil {
-		h.response.Error(w, r, err)
-		return
-	}
-
-	// Map to public
-	profile := ToPublicProfile(p)
-
-	// Return profile (user with albums)
-	h.response.SuccessDataOnly(w, r, profile)
-}
-
 /* Get album list by user slug */
 func (h *Handler) AlbumList(w http.ResponseWriter, r *http.Request) {
 	userSlug := chi.URLParam(r, "slug")
 	// Get claims from context
 	claims, _ := tokens.GetClaimsFromContext(r.Context())
+	// Parse pagination parameters
+	query := r.URL.Query()
+	cursor := query.Get("cursor")
+	limit := 50
+	if limitParam := query.Get("limit"); limitParam != "" {
+		if parsed, err := strconv.Atoi(limitParam); err == nil {
+			limit = parsed
+		}
+	}
 	// Get album list
-	a, err := h.users.AlbumList(r.Context(), userSlug, claims.UserID, claims.Email)
+	a, nextCursor, err := h.users.AlbumList(r.Context(), userSlug, claims.UserID, claims.Email, cursor, limit)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return
@@ -63,8 +54,8 @@ func (h *Handler) AlbumList(w http.ResponseWriter, r *http.Request) {
 	// Map to public
 	albums := albums.ToPublicAlbumList(a)
 
-	// Return profile (user with albums)
-	h.response.SuccessDataOnly(w, r, albums)
+	// Return albums
+	h.response.Paginated(w, r, albums, nextCursor)
 }
 
 /* Get authenticated user info */
@@ -98,7 +89,7 @@ func (h *Handler) Info(w http.ResponseWriter, r *http.Request) {
 	// Map to public user
 	user := ToPublic(u)
 
-	// Return user with albums (profile)
+	// Return user info
 	h.response.SuccessDataOnly(w, r, user)
 }
 

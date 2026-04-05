@@ -17,5 +17,3 @@ sql:
             go_type: "time.Time"
           - column: "albums.atlas"
             go_type: "api/internal/domain/albums/albumtypes.Atlas"
-          - column: "albums.access"
-            go_type: "api/internal/domain/albums/albumtypes.Access"

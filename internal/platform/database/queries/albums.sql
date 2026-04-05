@@ -1,24 +1,51 @@
--- name: GetAvailableAlbum :one
-SELECT sqlc.embed(a)
-FROM albums a
+-- name: GetAvailableAlbumBySlugs :one
+SELECT sqlc.embed(a), sqlc.embed(u) FROM albums a
 JOIN users u ON a.user_id = u.id
-WHERE u.slug = @user_slug AND a.slug = @album_slug AND a.is_active AND a.deleted_at IS NULL;
+WHERE u.slug = @user_slug AND a.slug = @album_slug AND a.is_active AND a.deleted_at IS NULL AND u.deleted_at IS NULL AND (
+      access = 'public'
+      OR (access = 'shared' AND @viewer_email::text = ANY(shared_emails))
+      OR @viewer_id::uuid = a.user_id::uuid
+  );
 
--- name: ListAvailableAlbums :many
-SELECT id, date_at, is_active, title, slug, access
+-- name: ListAvailableAlbumIDs :many
+SELECT id, date_at
 FROM albums
-WHERE user_id = @user_id AND deleted_at IS NULL
-ORDER BY date_at DESC;
+WHERE user_id = @user_id
+  AND deleted_at IS NULL
+  AND (
+      access = 'public'
+      OR (access = 'shared' AND @viewer_email::text = ANY(shared_emails))
+      OR @viewer_id::uuid = @user_id::uuid
+  )
+  AND (
+      sqlc.narg('cursor_date_at')::timestamptz IS NULL
+      OR date_at < sqlc.narg('cursor_date_at')::timestamptz
+      OR (date_at = sqlc.narg('cursor_date_at')::timestamptz AND id < sqlc.narg('cursor_id')::uuid)
+  )
+ORDER BY date_at DESC, id DESC
+LIMIT sqlc.arg('limit');
 
--- name: ListDeletedAlbums :many
-SELECT id, date_at, is_active, title, slug, access
+-- name: ListDeletedAlbumIDs :many
+SELECT id, date_at
 FROM albums
-WHERE user_id = @user_id AND deleted_at IS NOT NULL
-ORDER BY date_at DESC;
+WHERE user_id = @user_id
+  AND deleted_at IS NOT NULL
+  AND (
+      sqlc.narg('cursor_date_at')::timestamptz IS NULL
+      OR date_at < sqlc.narg('cursor_date_at')::timestamptz
+      OR (date_at = sqlc.narg('cursor_date_at')::timestamptz AND id < sqlc.narg('cursor_id')::uuid)
+  )
+ORDER BY date_at DESC, id DESC
+LIMIT sqlc.arg('limit');
+
+-- name: GetAlbumsByIDs :many
+SELECT *
+FROM albums a
+WHERE id = ANY(@ids::uuid[]);
 
 -- name: CreateAlbum :one
-INSERT INTO albums (user_id, title, slug, atlas, access, date_at)
-SELECT u.id, @title, @slug, @atlas, @access, @date_at
+INSERT INTO albums (user_id, title, slug, atlas, access, shared_emails, date_at)
+SELECT u.id, @title, @slug, @atlas, @access, @shared_emails, @date_at
 FROM users u
 WHERE u.id = @user_id AND u.deleted_at IS NULL
 RETURNING *;
@@ -37,6 +64,7 @@ SET
   slug = @slug,
   atlas = @atlas,
   access = @access,
+  shared_emails = @shared_emails,
   date_at = @date_at,
   is_active = @is_active,
   updated_at = NOW()
@@ -57,16 +85,6 @@ SET deleted_at = NOW(), updated_at = NOW()
 FROM old_data
 WHERE albums.id = old_data.id
 RETURNING sqlc.embed(albums), old_data.user_slug;
-
--- name: SoftDeleteAllAlbums :many
-UPDATE albums a
-SET deleted_at = NOW(), updated_at = NOW()
-FROM users u
-WHERE a.user_id = u.id
-  AND a.user_id = @user_id
-  AND a.deleted_at IS NULL
-  AND u.deleted_at IS NULL
-RETURNING a.id;
 
 -- name: RestoreAlbum :one
 UPDATE albums a

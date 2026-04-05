@@ -6,6 +6,7 @@ import (
 	"api/internal/platform/request"
 	"api/internal/platform/response"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -25,40 +26,6 @@ func NewHandler(service *Service, response *response.Response, val *validator.Va
 		response:  response,
 		validator: val,
 	}
-}
-
-/* Get authenticated user's album list */
-func (h *Handler) CurrentAvailableList(w http.ResponseWriter, r *http.Request) {
-	// Get claims from context
-	claims, ok := tokens.GetClaimsFromContext(r.Context())
-	if !ok {
-		h.response.Error(w, r, response.ErrNoClaims)
-		return
-	}
-	// Get owned list of albums
-	albums, err := h.albums.ListAvailable(r.Context(), claims.UserID, claims.Email, true)
-	if err != nil {
-		h.response.Error(w, r, err)
-		return
-	}
-	h.response.SuccessDataOnly(w, r, albums)
-}
-
-/* Get authenticated user's list of deleted albums */
-func (h *Handler) CurrentDeletedList(w http.ResponseWriter, r *http.Request) {
-	// Get claims from context
-	claims, ok := tokens.GetClaimsFromContext(r.Context())
-	if !ok {
-		h.response.Error(w, r, response.ErrNoClaims)
-		return
-	}
-	// Get list of deleted albums
-	albums, err := h.albums.ListDeleted(r.Context(), claims.UserID)
-	if err != nil {
-		h.response.Error(w, r, err)
-		return
-	}
-	h.response.SuccessDataOnly(w, r, albums)
 }
 
 /* Get available album by user slug and album slug */
@@ -81,6 +48,62 @@ func (h *Handler) GetAvailable(w http.ResponseWriter, r *http.Request) {
 	h.response.SuccessDataOnly(w, r, album)
 }
 
+/* Get authenticated user's album list */
+func (h *Handler) CurrentAvailableList(w http.ResponseWriter, r *http.Request) {
+	// Get claims from context
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+
+	// Parse pagination parameters
+	query := r.URL.Query()
+	cursor := query.Get("cursor")
+	limit := 50
+	if limitParam := query.Get("limit"); limitParam != "" {
+		if parsed, err := strconv.Atoi(limitParam); err == nil {
+			limit = parsed
+		}
+	}
+
+	// Get owned list of albums
+	albums, nextCursor, err := h.albums.ListAvailable(r.Context(), claims.UserID, claims.UserID, claims.Email, cursor, limit)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+	h.response.Paginated(w, r, albums, nextCursor)
+}
+
+/* Get authenticated user's list of deleted albums */
+func (h *Handler) CurrentDeletedList(w http.ResponseWriter, r *http.Request) {
+	// Get claims from context
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+
+	// Parse pagination parameters
+	query := r.URL.Query()
+	cursor := query.Get("cursor")
+	limit := 50
+	if limitParam := query.Get("limit"); limitParam != "" {
+		if parsed, err := strconv.Atoi(limitParam); err == nil {
+			limit = parsed
+		}
+	}
+
+	// Get owned list of deleted albums
+	albums, nextCursor, err := h.albums.ListDeleted(r.Context(), claims.UserID, cursor, limit)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+	h.response.Paginated(w, r, albums, nextCursor)
+}
+
 /* Create album */
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	// Get user claims
@@ -92,11 +115,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// JSON decode
 	input := struct {
-		Title  string            `json:"title" validate:"required,min=2,max=255"`
-		Atlas  albumtypes.Atlas  `json:"atlas" validate:"required,min=1,dive"`
-		Access albumtypes.Access `json:"access" validate:"required"`
-		Slug   string            `json:"slug" validate:"required,min=2,max=255,slug"`
-		DateAt time.Time         `json:"date_at" validate:"required"`
+		Title        string           `json:"title" validate:"required,min=2,max=255"`
+		Atlas        albumtypes.Atlas `json:"atlas" validate:"required,min=1,dive"`
+		Access       string           `json:"access" validate:"required"`
+		SharedEmails []string         `json:"shared_emails"`
+		Slug         string           `json:"slug" validate:"required,min=2,max=255,slug"`
+		DateAt       time.Time        `json:"date_at" validate:"required"`
 	}{}
 	if err := request.DecodeJSONBody(w, r, &input); err != nil {
 		h.response.Error(w, r, response.ErrBadJSON.Wrap(err))
@@ -110,7 +134,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create album
-	album, err := h.albums.Create(r.Context(), claims.UserID, input.Title, input.Slug, input.Atlas, input.Access, input.DateAt)
+	album, err := h.albums.Create(r.Context(), claims.UserID, input.Title, input.Slug, input.Atlas, input.Access, input.SharedEmails, input.DateAt)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return
@@ -138,12 +162,13 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// JSON decode
 	input := struct {
-		Title    string            `json:"title" validate:"required,min=2,max=255"`
-		Atlas    albumtypes.Atlas  `json:"atlas" validate:"required,min=1,dive"`
-		Access   albumtypes.Access `json:"access" validate:"required"`
-		Slug     string            `json:"slug" validate:"required,min=2,max=255,slug"`
-		DateAt   time.Time         `json:"date_at" validate:"required"`
-		IsActive bool              `json:"is_active"`
+		Title        string           `json:"title" validate:"required,min=2,max=255"`
+		Atlas        albumtypes.Atlas `json:"atlas" validate:"required,min=1,dive"`
+		Access       string           `json:"access" validate:"required"`
+		SharedEmails []string         `json:"shared_emails"`
+		Slug         string           `json:"slug" validate:"required,min=2,max=255,slug"`
+		DateAt       time.Time        `json:"date_at" validate:"required"`
+		IsActive     bool             `json:"is_active"`
 	}{}
 	if err := request.DecodeJSONBody(w, r, &input); err != nil {
 		h.response.Error(w, r, response.ErrBadJSON.Wrap(err))
@@ -157,7 +182,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update album
-	album, err := h.albums.Update(r.Context(), claims.UserID, albumID, input.Title, input.Slug, input.Atlas, input.Access, input.DateAt, input.IsActive)
+	album, err := h.albums.Update(r.Context(), claims.UserID, albumID, input.Title, input.Slug, input.Atlas, input.Access, input.SharedEmails, input.DateAt, input.IsActive)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return

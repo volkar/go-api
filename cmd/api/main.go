@@ -9,6 +9,7 @@ import (
 	"api/internal/platform/cache"
 	"api/internal/platform/config"
 	"api/internal/platform/cookies"
+	"api/internal/platform/cursor"
 	"api/internal/platform/i18n"
 	"api/internal/platform/ratelimit"
 	"api/internal/platform/response"
@@ -52,6 +53,7 @@ type app struct {
 	usersService     *users.Service
 	adminHandler     *admin.Handler
 	adminService     *admin.Service
+	cursorManager    *cursor.Cursor
 	allowedOrigins   []string
 	allowedProviders []string
 }
@@ -111,12 +113,15 @@ func main() {
 	// Cookie manager
 	cookiesManager := cookies.New(cfg.Cookie.Secure, cfg.Cookie.SameSite, cfg.Paseto.AccessTTL, cfg.Paseto.RefreshTTL)
 
+	// Cursor manager
+	cursorManager := cursor.New([]byte(cfg.CursorSecretKey), logger)
+
 	// Token manager
 	tokensRepo := tokens.NewRepository(pool)
 	tokenManager := tokens.NewService(cfg.Paseto.SecretKey, tokensRepo, logger)
 
 	// Albums package
-	albumsRepo := albums.NewRepository(pool, cache)
+	albumsRepo := albums.NewRepository(pool, cache, cursorManager)
 	albumsService := albums.NewService(albumsRepo)
 	albumsHandler := albums.NewHandler(albumsService, resp, val)
 
@@ -166,6 +171,7 @@ func main() {
 		usersService:     usersService,
 		adminHandler:     adminHandler,
 		adminService:     adminService,
+		cursorManager:    cursorManager,
 		allowedOrigins:   []string{cfg.Frontend, cfg.Backend},
 		allowedProviders: cfg.Auth.AllowedProviders,
 	}

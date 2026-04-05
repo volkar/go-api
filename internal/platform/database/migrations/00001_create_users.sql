@@ -15,5 +15,6 @@ CREATE UNIQUE INDEX idx_users_slug_active ON users (slug) WHERE (deleted_at IS N
 
 -- +goose Down
 -- +goose StatementBegin
+DROP INDEX IF EXISTS idx_users_slug_active;
 DROP TABLE IF EXISTS users;
 -- +goose StatementEnd

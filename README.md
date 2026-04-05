@@ -1,7 +1,7 @@
 # Tesseract
 ### Go API Boilerplate
 
-A robust, production-ready backend template designed for modern SPAs (Nuxt, Next.js). This boilerplate focusing on extreme security, performance, and clean code principles.
+A robust, production-ready backend template designed for modern SPAs (Nuxt, Next.js). This boilerplate focuses on extreme security, high-load performance, and clean code principles. Built for scale from day one.
 
 ### Tech Stack
 
@@ -13,21 +13,24 @@ A robust, production-ready backend template designed for modern SPAs (Nuxt, Next
 
 ### Key Features & Strengths
 
-#### Security First
+#### 🛡️ Security First & Resilience
 
 - **Fully Stateless PASETO Authentication**: Uses PASETO (V4) instead of JWT to eliminate common header/algorithm vulnerabilities. Optimized Access & Refresh token flow.
+- **Concurrent Refresh Token Protection**: Implements a strict "Grace Period" mechanism to handle network retries elegantly, preventing false-positive token theft detections and race conditions on unstable mobile connections.
+- **Opaque Secure Cursors (AES-GCM)**: Pagination cursors are cryptographically sealed using AES-GCM encryption. This completely hides underlying database logic (like UUIDs or timestamps) from clients, preventing IDOR, cursor tampering, and malicious data scraping.
 - **Advanced CSRF Protection**: Combined `SameSite=Lax` cookie policy with custom header validation (`X-Requested-With`) and strict `Origin/Referer` checks.
-- **Smart Session Management**: Track active sessions with metadata (IP, Browser, OS).
-- **Multi-Device Logout**: Logic to "Logout from other devices" by invalidating specific refresh token families in the database.
-- **Rate Limiting & Payload Protection**: Global body size limits (preventing "Terabyte" attacks) and strict timeouts for all network operations.
+- **Smart Session Management**: Track active sessions with metadata (IP, Browser, OS). Includes "Logout from other devices" functionality by invalidating specific refresh token families.
+- **Payload & DDoS Protection**: Global body size limits (preventing "Terabyte" attacks) and strict timeouts for all network operations.
 
-#### Performance & Caching
+#### ⚡ Extreme Performance & High-Load Caching
 
-- **Transparent Redis Layer**: Custom "Repository Decorator" pattern. The Service layer doesn't know about Redis; the Repository handles cache-aside logic automatically.
-- **Automatic Cache Invalidation**: Smart invalidation on `UPDATE/DELETE` operations to ensure data consistency without "stale" data issues.
-- **ETag Middleware**: Built-in hashing of GET responses to support 304 Not Modified, saving massive bandwidth for content-heavy responses.
+- **Cache Stampede (Thundering Herd) Protection**: Utilizes Go's `singleflight` pattern. If 1,000 users request the same missing cache key simultaneously, only one database query is executed, instantly sharing the result across all goroutines.
+- **Entity Caching & Normalized Aliases**: Avoids combinatorial cache bloat (OOM risk) by caching pure entities via MGET and resolving slugs/relations through atomic Lua scripts. Deeply nested permission checks are offloaded to PostgreSQL's GIN indexes, while Redis handles ultra-fast entity delivery.
+- **Zero-Allocation ETag Middleware**: Built-in hashing of GET responses to support HTTP 304 Not Modified. Leverages sync.Pool for byte buffers, completely eliminating Garbage Collection (GC) spikes and heap allocations when hashing massive JSON payloads.
+- **Asynchronous, Leak-Free Invalidation**: Cache writes and invalidations are detached from HTTP contexts and executed in background goroutines (Fire-and-Forget). Uses a "Lazy Deletion / TTL" approach for heavy relational data, preventing Redis Orphaned Set Members leaks and keeping invalidation complexity at O(1).
+- **O(1) Deep Pagination**: Pure Cursor-based pagination utilizing composite B-Tree indexes in PostgreSQL. Zero usage of the slow $O(N) OFFSET operator, guaranteeing flat response times even at millions of records.
 
-#### Architecture
+#### 🏗️ Architecture
 
 - **Strict Clean Architecture**: Clear separation between `Handlers` (HTTP), `Services` (Business Logic), and `Repositories` (Data Access).
 
@@ -35,19 +38,16 @@ A robust, production-ready backend template designed for modern SPAs (Nuxt, Next
 
 - **Type-Safe SQL**: Thanks to SQLC, your Go code always stays in sync with your schema. No more `interface{}` or reflection-heavy ORM magic.
 
-- **Graceful Shutdown**: Handles OS signals to close DB and Redis connections cleanly without losing data.
+- **Graceful Shutdown**: Handles OS signals to close DB and Redis connections cleanly without dropping active requests or losing background cache writes.
 
-#### Additional Features & Enterprise Readiness
+#### 🚀 Additional Enterprise Features
 - **Integrated OAuth 2.0 Flow**: Seamless social authentication (Google, GitHub, etc.) with automated account linking and session creation.
 
-- **Header-based Internationalization (i18n)**: Automated localization of error messages and system notifications based on the Accept-Language header. Built-in middleware to detect and propagate the user's preferred locale.
+- **Header-based Internationalization (i18n)**: Automated localization of error messages and system notifications based on the `Accept-Language` header.
 
-- **Non-destructive Data Management (Soft Deletes)**: Robust protection against accidental data loss. Users and albums utilize a deleted_at pattern, allowing for easy data recovery and maintaining relational integrity without permanent removal.
+- **Non-destructive Data Management (Soft Deletes)**: Robust protection against accidental data loss. Users and entities utilize a `deleted_at` pattern, maintaining relational integrity without permanent removal.
 
-- **Granular Access Control (RBAC)**: Built-in support for multiple user roles (Admin, User).
-
-- **Permission-based Middleware**: Flexible pre-route authorization layer that prevents unauthorized access to sensitive endpoints before the request even reaches the business logic.
-
+- **Granular Access Control (RBAC)**: Built-in support for multiple user roles and flexible pre-route authorization middlewares.
 
 ## Authentication endpoints
 
@@ -68,10 +68,10 @@ Deletes all other refresh tokens from database (logout from other devices)
 **GET** `/me/info`
 Authenticated user info
 
-**GET** `/me/list`
+**GET** `/me/albums`
 Authenticated user list of albums
 
-**GET** `/me/deleted`
+**GET** `/me/albums/deleted`
 Authenticated user list of deleted albums
 
 ## Data endpoints
@@ -82,11 +82,8 @@ Simple health check
 **GET** `/users/{user_slug}/info`
 Get user info by user slug
 
-**GET** `/users/{user_slug}/list`
+**GET** `/users/{user_slug}/albums`
 Get user list of albums by user slug
-
-**GET** `/users/{user_slug}/profile`
-Get user info and list of albums by user slug
 
 **GET** `/albums/{user_slug}/{album_slug}`
 Get the album data from user slug and album slug
@@ -127,10 +124,10 @@ Purge user with all albums and tokens. Requires admin role
 For development purposes there is `/cmd/api/routed_playground.go` file with `Playground endpoints`. Should be deleted in production
 
 **GET** `/playground/create_admin`
-Creates `admin` user with 3 albums (public, private and shared for user) (`/users/admin/profile`)
+Creates `admin` user with 3 albums (public, private and shared for user) (`/users/admin/info` and `/users/admin/albums`)
 
 **GET** `/playground/create_user`
-Creates `user` user with 3 albums (public, private and shared for admin) (`/users/user/profile`)
+Creates `user` user with 3 albums (public, private and shared for admin) (`/users/user/info` and `/users/user/albums`)
 
 **GET** `/playground/get_admin_cookies`
 Get access and refresh tokens for admin

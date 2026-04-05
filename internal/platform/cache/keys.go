@@ -1,32 +1,32 @@
 package cache
 
 import (
-	"fmt"
-
 	"github.com/google/uuid"
 )
 
-/* Cache key "cache:mapper:SLUG" */
-func keyMapper(slug string) string {
-	return fmt.Sprintf("cache:mapper:%s", slug)
+var (
+	UserMapperPrefix  = "c:u_m:"
+	UserEntityPrefix  = "c:u:"
+	AlbumMapperPrefix = "c:a_m:"
+	AlbumEntityPrefix = "c:a:"
+)
+
+/* Cache key "c:u:USER_ID" */
+func keyUserEntity(userID uuid.UUID) string {
+	return UserEntityPrefix + userID.String()
 }
 
-/* Cache key "cache:user:UUID" */
-func keyUser(id uuid.UUID) string {
-	return fmt.Sprintf("cache:user:%s", id.String())
+/* Cache key "c:u_m:USER_SLUG" */
+func keyUserMapper(userSlug string) string {
+	return UserMapperPrefix + userSlug
 }
 
-/* Cache key "cache:album:USER_SLUG/ALBUM_SLUG" */
-func keyAlbum(user_slug string, album_slug string) string {
-	return fmt.Sprintf("cache:album:%s/%s", user_slug, album_slug)
+/* Cache key "c:a:ALBUM_ID" */
+func keyAlbumEntity(albumID uuid.UUID) string {
+	return AlbumEntityPrefix + albumID.String()
 }
 
-/* Cache key "cache:list:UUID" */
-func keyAlbumList(id uuid.UUID) string {
-	return fmt.Sprintf("cache:list:%s", id.String())
-}
-
-/* Cache key "cache:deleted:UUID" */
-func keyDeletedAlbums(id uuid.UUID) string {
-	return fmt.Sprintf("cache:deleted:%s", id.String())
+/* Cache key "c:a_m:USER_ID/ALBUM_SLUG" */
+func keyAlbumMapper(userID uuid.UUID, albumSlug string) string {
+	return AlbumMapperPrefix + userID.String() + "/" + albumSlug
 }

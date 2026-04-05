@@ -1,7 +1,6 @@
 package users
 
 import (
-	"api/internal/domain/albums"
 	db "api/internal/platform/database/sqlc"
 
 	"github.com/google/uuid"
@@ -38,24 +37,5 @@ func ToPublic(u User) PublicUser {
 	return PublicUser{
 		Username: u.Username,
 		Slug:     u.Slug,
-	}
-}
-
-// Profile (user with albums)
-
-type Profile struct {
-	User   User                 `json:"user"`
-	Albums []albums.AlbumInList `json:"albums"`
-}
-
-type PublicProfile struct {
-	User   PublicUser                 `json:"user"`
-	Albums []albums.PublicAlbumInList `json:"albums"`
-}
-
-func ToPublicProfile(p Profile) PublicProfile {
-	return PublicProfile{
-		User:   ToPublic(p.User),
-		Albums: albums.ToPublicAlbumList(p.Albums),
 	}
 }

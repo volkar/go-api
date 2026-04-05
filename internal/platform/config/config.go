@@ -10,19 +10,20 @@ import (
 )
 
 type Config struct {
-	Addr         string `env:"APP_ADDRESS" env-default:"localhost:8000"`
-	Backend      string `env:"APP_BACKEND_URL" env-default:"http://localhost:8000"`
-	Frontend     string `env:"APP_FRONTEND_URL" env-default:"http://localhost:5173"`
-	Env          string `env:"APP_ENV" env-default:"dev"`
-	Lang         string `env:"APP_LANGUAGE" env-default:"en"`
-	FallbackLang string `env:"APP_FALLBACK_LANGUAGE" env-default:"en"`
-	Security     securityConfig
-	Cache        cacheConfig
-	Auth         authConfig
-	DB           dbConfig
-	Redis        redisConfig
-	Cookie       cookieConfig
-	Paseto       pasetoConfig
+	Addr            string `env:"APP_ADDRESS" env-default:"localhost:8000"`
+	Backend         string `env:"APP_BACKEND_URL" env-default:"http://localhost:8000"`
+	Frontend        string `env:"APP_FRONTEND_URL" env-default:"http://localhost:5173"`
+	Env             string `env:"APP_ENV" env-default:"dev"`
+	Lang            string `env:"APP_LANGUAGE" env-default:"en"`
+	FallbackLang    string `env:"APP_FALLBACK_LANGUAGE" env-default:"en"`
+	CursorSecretKey string `env:"CURSOR_SECRET_KEY" env-required:"true"`
+	Security        securityConfig
+	Cache           cacheConfig
+	Auth            authConfig
+	DB              dbConfig
+	Redis           redisConfig
+	Cookie          cookieConfig
+	Paseto          pasetoConfig
 }
 
 func MustLoad(logger *slog.Logger) *Config {

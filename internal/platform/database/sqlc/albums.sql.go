@@ -11,23 +11,25 @@ import (
 
 	"api/internal/domain/albums/albumtypes"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createAlbum = `-- name: CreateAlbum :one
-INSERT INTO albums (user_id, title, slug, atlas, access, date_at)
-SELECT u.id, $1, $2, $3, $4, $5
+INSERT INTO albums (user_id, title, slug, atlas, access, shared_emails, date_at)
+SELECT u.id, $1, $2, $3, $4, $5, $6
 FROM users u
-WHERE u.id = $6 AND u.deleted_at IS NULL
-RETURNING id, title, date_at, atlas, access, slug, is_active, user_id, created_at, updated_at, deleted_at
+WHERE u.id = $7 AND u.deleted_at IS NULL
+RETURNING id, title, date_at, atlas, access, shared_emails, slug, is_active, user_id, created_at, updated_at, deleted_at
 `
 
 type CreateAlbumParams struct {
-	Title  string            `json:"title"`
-	Slug   string            `json:"slug"`
-	Atlas  albumtypes.Atlas  `json:"atlas"`
-	Access albumtypes.Access `json:"access"`
-	DateAt time.Time         `json:"date_at"`
-	UserID uuid.UUID         `json:"user_id"`
+	Title        string           `json:"title"`
+	Slug         string           `json:"slug"`
+	Atlas        albumtypes.Atlas `json:"atlas"`
+	Access       string           `json:"access"`
+	SharedEmails []string         `json:"shared_emails"`
+	DateAt       time.Time        `json:"date_at"`
+	UserID       uuid.UUID        `json:"user_id"`
 }
 
 func (q *Queries) CreateAlbum(ctx context.Context, arg CreateAlbumParams) (Album, error) {
@@ -36,6 +38,7 @@ func (q *Queries) CreateAlbum(ctx context.Context, arg CreateAlbumParams) (Album
 		arg.Slug,
 		arg.Atlas,
 		arg.Access,
+		arg.SharedEmails,
 		arg.DateAt,
 		arg.UserID,
 	)
@@ -46,6 +49,7 @@ func (q *Queries) CreateAlbum(ctx context.Context, arg CreateAlbumParams) (Album
 		&i.DateAt,
 		&i.Atlas,
 		&i.Access,
+		&i.SharedEmails,
 		&i.Slug,
 		&i.IsActive,
 		&i.UserID,
@@ -56,37 +60,96 @@ func (q *Queries) CreateAlbum(ctx context.Context, arg CreateAlbumParams) (Album
 	return i, err
 }
 
-const getAvailableAlbum = `-- name: GetAvailableAlbum :one
-SELECT a.id, a.title, a.date_at, a.atlas, a.access, a.slug, a.is_active, a.user_id, a.created_at, a.updated_at, a.deleted_at
+const getAlbumsByIDs = `-- name: GetAlbumsByIDs :many
+SELECT id, title, date_at, atlas, access, shared_emails, slug, is_active, user_id, created_at, updated_at, deleted_at
 FROM albums a
-JOIN users u ON a.user_id = u.id
-WHERE u.slug = $1 AND a.slug = $2 AND a.is_active AND a.deleted_at IS NULL
+WHERE id = ANY($1::uuid[])
 `
 
-type GetAvailableAlbumParams struct {
-	UserSlug  string `json:"user_slug"`
-	AlbumSlug string `json:"album_slug"`
+func (q *Queries) GetAlbumsByIDs(ctx context.Context, ids []uuid.UUID) ([]Album, error) {
+	rows, err := q.db.Query(ctx, getAlbumsByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Album
+	for rows.Next() {
+		var i Album
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.DateAt,
+			&i.Atlas,
+			&i.Access,
+			&i.SharedEmails,
+			&i.Slug,
+			&i.IsActive,
+			&i.UserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-type GetAvailableAlbumRow struct {
+const getAvailableAlbumBySlugs = `-- name: GetAvailableAlbumBySlugs :one
+SELECT a.id, a.title, a.date_at, a.atlas, a.access, a.shared_emails, a.slug, a.is_active, a.user_id, a.created_at, a.updated_at, a.deleted_at, u.id, u.username, u.email, u.role, u.slug, u.created_at, u.updated_at, u.deleted_at FROM albums a
+JOIN users u ON a.user_id = u.id
+WHERE u.slug = $1 AND a.slug = $2 AND a.is_active AND a.deleted_at IS NULL AND u.deleted_at IS NULL AND (
+      access = 'public'
+      OR (access = 'shared' AND $3::text = ANY(shared_emails))
+      OR $4::uuid = a.user_id::uuid
+  )
+`
+
+type GetAvailableAlbumBySlugsParams struct {
+	UserSlug    string    `json:"user_slug"`
+	AlbumSlug   string    `json:"album_slug"`
+	ViewerEmail string    `json:"viewer_email"`
+	ViewerID    uuid.UUID `json:"viewer_id"`
+}
+
+type GetAvailableAlbumBySlugsRow struct {
 	Album Album `json:"album"`
+	User  User  `json:"user"`
 }
 
-func (q *Queries) GetAvailableAlbum(ctx context.Context, arg GetAvailableAlbumParams) (GetAvailableAlbumRow, error) {
-	row := q.db.QueryRow(ctx, getAvailableAlbum, arg.UserSlug, arg.AlbumSlug)
-	var i GetAvailableAlbumRow
+func (q *Queries) GetAvailableAlbumBySlugs(ctx context.Context, arg GetAvailableAlbumBySlugsParams) (GetAvailableAlbumBySlugsRow, error) {
+	row := q.db.QueryRow(ctx, getAvailableAlbumBySlugs,
+		arg.UserSlug,
+		arg.AlbumSlug,
+		arg.ViewerEmail,
+		arg.ViewerID,
+	)
+	var i GetAvailableAlbumBySlugsRow
 	err := row.Scan(
 		&i.Album.ID,
 		&i.Album.Title,
 		&i.Album.DateAt,
 		&i.Album.Atlas,
 		&i.Album.Access,
+		&i.Album.SharedEmails,
 		&i.Album.Slug,
 		&i.Album.IsActive,
 		&i.Album.UserID,
 		&i.Album.CreatedAt,
 		&i.Album.UpdatedAt,
 		&i.Album.DeletedAt,
+		&i.User.ID,
+		&i.User.Username,
+		&i.User.Email,
+		&i.User.Role,
+		&i.User.Slug,
+		&i.User.CreatedAt,
+		&i.User.UpdatedAt,
+		&i.User.DeletedAt,
 	)
 	return i, err
 }
@@ -114,39 +177,56 @@ func (q *Queries) HardDeleteAlbum(ctx context.Context, arg HardDeleteAlbumParams
 	return id, err
 }
 
-const listAvailableAlbums = `-- name: ListAvailableAlbums :many
-SELECT id, date_at, is_active, title, slug, access
+const listAvailableAlbumIDs = `-- name: ListAvailableAlbumIDs :many
+SELECT id, date_at
 FROM albums
-WHERE user_id = $1 AND deleted_at IS NULL
-ORDER BY date_at DESC
+WHERE user_id = $1
+  AND deleted_at IS NULL
+  AND (
+      access = 'public'
+      OR (access = 'shared' AND $2::text = ANY(shared_emails))
+      OR $3::uuid = $1::uuid
+  )
+  AND (
+      $4::timestamptz IS NULL
+      OR date_at < $4::timestamptz
+      OR (date_at = $4::timestamptz AND id < $5::uuid)
+  )
+ORDER BY date_at DESC, id DESC
+LIMIT $6
 `
 
-type ListAvailableAlbumsRow struct {
-	ID       uuid.UUID         `json:"id"`
-	DateAt   time.Time         `json:"date_at"`
-	IsActive bool              `json:"is_active"`
-	Title    string            `json:"title"`
-	Slug     string            `json:"slug"`
-	Access   albumtypes.Access `json:"access"`
+type ListAvailableAlbumIDsParams struct {
+	UserID       uuid.UUID          `json:"user_id"`
+	ViewerEmail  string             `json:"viewer_email"`
+	ViewerID     uuid.UUID          `json:"viewer_id"`
+	CursorDateAt pgtype.Timestamptz `json:"cursor_date_at"`
+	CursorID     pgtype.UUID        `json:"cursor_id"`
+	Limit        int32              `json:"limit"`
 }
 
-func (q *Queries) ListAvailableAlbums(ctx context.Context, userID uuid.UUID) ([]ListAvailableAlbumsRow, error) {
-	rows, err := q.db.Query(ctx, listAvailableAlbums, userID)
+type ListAvailableAlbumIDsRow struct {
+	ID     uuid.UUID `json:"id"`
+	DateAt time.Time `json:"date_at"`
+}
+
+func (q *Queries) ListAvailableAlbumIDs(ctx context.Context, arg ListAvailableAlbumIDsParams) ([]ListAvailableAlbumIDsRow, error) {
+	rows, err := q.db.Query(ctx, listAvailableAlbumIDs,
+		arg.UserID,
+		arg.ViewerEmail,
+		arg.ViewerID,
+		arg.CursorDateAt,
+		arg.CursorID,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListAvailableAlbumsRow
+	var items []ListAvailableAlbumIDsRow
 	for rows.Next() {
-		var i ListAvailableAlbumsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.DateAt,
-			&i.IsActive,
-			&i.Title,
-			&i.Slug,
-			&i.Access,
-		); err != nil {
+		var i ListAvailableAlbumIDsRow
+		if err := rows.Scan(&i.ID, &i.DateAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -157,39 +237,47 @@ func (q *Queries) ListAvailableAlbums(ctx context.Context, userID uuid.UUID) ([]
 	return items, nil
 }
 
-const listDeletedAlbums = `-- name: ListDeletedAlbums :many
-SELECT id, date_at, is_active, title, slug, access
+const listDeletedAlbumIDs = `-- name: ListDeletedAlbumIDs :many
+SELECT id, date_at
 FROM albums
-WHERE user_id = $1 AND deleted_at IS NOT NULL
-ORDER BY date_at DESC
+WHERE user_id = $1
+  AND deleted_at IS NOT NULL
+  AND (
+      $2::timestamptz IS NULL
+      OR date_at < $2::timestamptz
+      OR (date_at = $2::timestamptz AND id < $3::uuid)
+  )
+ORDER BY date_at DESC, id DESC
+LIMIT $4
 `
 
-type ListDeletedAlbumsRow struct {
-	ID       uuid.UUID         `json:"id"`
-	DateAt   time.Time         `json:"date_at"`
-	IsActive bool              `json:"is_active"`
-	Title    string            `json:"title"`
-	Slug     string            `json:"slug"`
-	Access   albumtypes.Access `json:"access"`
+type ListDeletedAlbumIDsParams struct {
+	UserID       uuid.UUID          `json:"user_id"`
+	CursorDateAt pgtype.Timestamptz `json:"cursor_date_at"`
+	CursorID     pgtype.UUID        `json:"cursor_id"`
+	Limit        int32              `json:"limit"`
 }
 
-func (q *Queries) ListDeletedAlbums(ctx context.Context, userID uuid.UUID) ([]ListDeletedAlbumsRow, error) {
-	rows, err := q.db.Query(ctx, listDeletedAlbums, userID)
+type ListDeletedAlbumIDsRow struct {
+	ID     uuid.UUID `json:"id"`
+	DateAt time.Time `json:"date_at"`
+}
+
+func (q *Queries) ListDeletedAlbumIDs(ctx context.Context, arg ListDeletedAlbumIDsParams) ([]ListDeletedAlbumIDsRow, error) {
+	rows, err := q.db.Query(ctx, listDeletedAlbumIDs,
+		arg.UserID,
+		arg.CursorDateAt,
+		arg.CursorID,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListDeletedAlbumsRow
+	var items []ListDeletedAlbumIDsRow
 	for rows.Next() {
-		var i ListDeletedAlbumsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.DateAt,
-			&i.IsActive,
-			&i.Title,
-			&i.Slug,
-			&i.Access,
-		); err != nil {
+		var i ListDeletedAlbumIDsRow
+		if err := rows.Scan(&i.ID, &i.DateAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -249,7 +337,7 @@ UPDATE albums
 SET deleted_at = NOW(), updated_at = NOW()
 FROM old_data
 WHERE albums.id = old_data.id
-RETURNING albums.id, albums.title, albums.date_at, albums.atlas, albums.access, albums.slug, albums.is_active, albums.user_id, albums.created_at, albums.updated_at, albums.deleted_at, old_data.user_slug
+RETURNING albums.id, albums.title, albums.date_at, albums.atlas, albums.access, albums.shared_emails, albums.slug, albums.is_active, albums.user_id, albums.created_at, albums.updated_at, albums.deleted_at, old_data.user_slug
 `
 
 type SoftDeleteAlbumParams struct {
@@ -271,6 +359,7 @@ func (q *Queries) SoftDeleteAlbum(ctx context.Context, arg SoftDeleteAlbumParams
 		&i.Album.DateAt,
 		&i.Album.Atlas,
 		&i.Album.Access,
+		&i.Album.SharedEmails,
 		&i.Album.Slug,
 		&i.Album.IsActive,
 		&i.Album.UserID,
@@ -282,43 +371,12 @@ func (q *Queries) SoftDeleteAlbum(ctx context.Context, arg SoftDeleteAlbumParams
 	return i, err
 }
 
-const softDeleteAllAlbums = `-- name: SoftDeleteAllAlbums :many
-UPDATE albums a
-SET deleted_at = NOW(), updated_at = NOW()
-FROM users u
-WHERE a.user_id = u.id
-  AND a.user_id = $1
-  AND a.deleted_at IS NULL
-  AND u.deleted_at IS NULL
-RETURNING a.id
-`
-
-func (q *Queries) SoftDeleteAllAlbums(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, softDeleteAllAlbums, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []uuid.UUID
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const updateAlbum = `-- name: UpdateAlbum :one
 WITH old_data AS (
   SELECT a.id, a.slug AS old_slug, u.slug AS user_slug
   FROM albums a
   JOIN users u ON a.user_id = u.id
-  WHERE a.id = $7 AND a.user_id = $8 AND a.deleted_at IS NULL AND u.deleted_at IS NULL
+  WHERE a.id = $8 AND a.user_id = $9 AND a.deleted_at IS NULL AND u.deleted_at IS NULL
   FOR UPDATE OF a
 )
 UPDATE albums
@@ -327,23 +385,25 @@ SET
   slug = $2,
   atlas = $3,
   access = $4,
-  date_at = $5,
-  is_active = $6,
+  shared_emails = $5,
+  date_at = $6,
+  is_active = $7,
   updated_at = NOW()
 FROM old_data
 WHERE albums.id = old_data.id
-RETURNING albums.id, albums.title, albums.date_at, albums.atlas, albums.access, albums.slug, albums.is_active, albums.user_id, albums.created_at, albums.updated_at, albums.deleted_at, old_data.old_slug, old_data.user_slug
+RETURNING albums.id, albums.title, albums.date_at, albums.atlas, albums.access, albums.shared_emails, albums.slug, albums.is_active, albums.user_id, albums.created_at, albums.updated_at, albums.deleted_at, old_data.old_slug, old_data.user_slug
 `
 
 type UpdateAlbumParams struct {
-	Title    string            `json:"title"`
-	Slug     string            `json:"slug"`
-	Atlas    albumtypes.Atlas  `json:"atlas"`
-	Access   albumtypes.Access `json:"access"`
-	DateAt   time.Time         `json:"date_at"`
-	IsActive bool              `json:"is_active"`
-	AlbumID  uuid.UUID         `json:"album_id"`
-	UserID   uuid.UUID         `json:"user_id"`
+	Title        string           `json:"title"`
+	Slug         string           `json:"slug"`
+	Atlas        albumtypes.Atlas `json:"atlas"`
+	Access       string           `json:"access"`
+	SharedEmails []string         `json:"shared_emails"`
+	DateAt       time.Time        `json:"date_at"`
+	IsActive     bool             `json:"is_active"`
+	AlbumID      uuid.UUID        `json:"album_id"`
+	UserID       uuid.UUID        `json:"user_id"`
 }
 
 type UpdateAlbumRow struct {
@@ -358,6 +418,7 @@ func (q *Queries) UpdateAlbum(ctx context.Context, arg UpdateAlbumParams) (Updat
 		arg.Slug,
 		arg.Atlas,
 		arg.Access,
+		arg.SharedEmails,
 		arg.DateAt,
 		arg.IsActive,
 		arg.AlbumID,
@@ -370,6 +431,7 @@ func (q *Queries) UpdateAlbum(ctx context.Context, arg UpdateAlbumParams) (Updat
 		&i.Album.DateAt,
 		&i.Album.Atlas,
 		&i.Album.Access,
+		&i.Album.SharedEmails,
 		&i.Album.Slug,
 		&i.Album.IsActive,
 		&i.Album.UserID,

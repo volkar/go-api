@@ -46,7 +46,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getAvailableUser = `-- name: GetAvailableUser :one
-SELECT id, username, email, role, slug, created_at, updated_at, deleted_at FROM users WHERE id = $1 AND deleted_at IS NULL LIMIT 1
+SELECT id, username, email, role, slug, created_at, updated_at, deleted_at FROM users WHERE id = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetAvailableUser(ctx context.Context, id uuid.UUID) (User, error) {
@@ -66,7 +66,7 @@ func (q *Queries) GetAvailableUser(ctx context.Context, id uuid.UUID) (User, err
 }
 
 const getAvailableUserBySlug = `-- name: GetAvailableUserBySlug :one
-SELECT id, username, email, role, slug, created_at, updated_at, deleted_at FROM users WHERE slug = $1 AND deleted_at IS NULL LIMIT 1
+SELECT id, username, email, role, slug, created_at, updated_at, deleted_at FROM users WHERE slug = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetAvailableUserBySlug(ctx context.Context, slug string) (User, error) {

@@ -11,65 +11,54 @@ import (
 // Full album (stored in cache, standart type)
 
 type Album struct {
-	ID       uuid.UUID         `json:"id"`
-	UserID   uuid.UUID         `json:"user_id"`
-	Title    string            `json:"title"`
-	Slug     string            `json:"slug"`
-	Atlas    albumtypes.Atlas  `json:"atlas"`
-	Access   albumtypes.Access `json:"access"`
-	DateAt   time.Time         `json:"date_at"`
-	IsActive bool              `json:"is_active"`
+	ID           uuid.UUID        `json:"id"`
+	UserID       uuid.UUID        `json:"user_id"`
+	Title        string           `json:"title"`
+	Slug         string           `json:"slug"`
+	Atlas        albumtypes.Atlas `json:"atlas"`
+	Access       string           `json:"access"`
+	SharedEmails []string         `json:"shared_emails"`
+	DateAt       time.Time        `json:"date_at"`
+	IsActive     bool             `json:"is_active"`
 }
 
 func FromDB(a db.Album) Album {
 	return Album{
-		ID:       a.ID,
-		UserID:   a.UserID,
-		Title:    a.Title,
-		Slug:     a.Slug,
-		Atlas:    a.Atlas,
-		Access:   a.Access,
-		DateAt:   a.DateAt,
-		IsActive: a.IsActive,
+		ID:           a.ID,
+		UserID:       a.UserID,
+		Title:        a.Title,
+		Slug:         a.Slug,
+		Atlas:        a.Atlas,
+		Access:       a.Access,
+		SharedEmails: a.SharedEmails,
+		DateAt:       a.DateAt,
+		IsActive:     a.IsActive,
 	}
 }
 
 // Raw album in list (stored in cache, standart type)
 
 type AlbumInList struct {
-	ID       uuid.UUID         `json:"id"`
-	Title    string            `json:"title"`
-	Slug     string            `json:"slug"`
-	Access   albumtypes.Access `json:"access"`
-	DateAt   time.Time         `json:"date_at"`
-	IsActive bool              `json:"is_active"`
+	ID           uuid.UUID `json:"id"`
+	Title        string    `json:"title"`
+	Slug         string    `json:"slug"`
+	Access       string    `json:"access"`
+	SharedEmails []string  `json:"shared_emails"`
+	DateAt       time.Time `json:"date_at"`
+	IsActive     bool      `json:"is_active"`
 }
 
-func AlbumListAvailableFromDB(albums []db.ListAvailableAlbumsRow) []AlbumInList {
+func ToAlbumList(albums []Album) []AlbumInList {
 	albumsResponse := make([]AlbumInList, len(albums))
 	for i := range albums {
 		albumsResponse[i] = AlbumInList{
-			ID:       albums[i].ID,
-			Title:    albums[i].Title,
-			Slug:     albums[i].Slug,
-			Access:   albums[i].Access,
-			DateAt:   albums[i].DateAt,
-			IsActive: albums[i].IsActive,
-		}
-	}
-	return albumsResponse
-}
-
-func AlbumListDeletedFromDB(albums []db.ListDeletedAlbumsRow) []AlbumInList {
-	albumsResponse := make([]AlbumInList, len(albums))
-	for i := range albums {
-		albumsResponse[i] = AlbumInList{
-			ID:       albums[i].ID,
-			Title:    albums[i].Title,
-			Slug:     albums[i].Slug,
-			Access:   albums[i].Access,
-			DateAt:   albums[i].DateAt,
-			IsActive: albums[i].IsActive,
+			ID:           albums[i].ID,
+			Title:        albums[i].Title,
+			Slug:         albums[i].Slug,
+			Access:       albums[i].Access,
+			SharedEmails: albums[i].SharedEmails,
+			DateAt:       albums[i].DateAt,
+			IsActive:     albums[i].IsActive,
 		}
 	}
 	return albumsResponse

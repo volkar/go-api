@@ -32,6 +32,17 @@ func (resp *Response) Success(w http.ResponseWriter, r *http.Request, message *A
 	})
 }
 
+/* Paginated response */
+func (resp *Response) Paginated(w http.ResponseWriter, r *http.Request, data any, nextCursor string) {
+	response := map[string]any{
+		"data": data,
+	}
+	if nextCursor != "" {
+		response["next_cursor"] = nextCursor
+	}
+	resp.generalResponse(w, http.StatusOK, response)
+}
+
 /* Success response with data */
 func (resp *Response) SuccessWithData(w http.ResponseWriter, r *http.Request, message *AppSuccess, data any) {
 	lang := i18n.GetLanguageFromContext(r.Context())

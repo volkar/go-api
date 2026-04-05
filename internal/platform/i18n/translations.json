@@ -31,6 +31,7 @@
     "err_user_not_found": "The requested user does not exist",
     "err_no_security_header": "Security check failed: missing required headers",
     "err_invalid_origin": "Request blocked: unauthorized origin",
+    "err_invalid_cursor": "Invalid cursor format",
     "err_unknown": "The application has encountered an unexpected error",
     "validation_failed": "Validation failed. Please correct the errors below",
     "validation_required": "This field is required",

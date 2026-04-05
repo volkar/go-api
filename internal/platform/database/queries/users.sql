@@ -1,8 +1,8 @@
 -- name: GetAvailableUser :one
-SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL LIMIT 1;
+SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: GetAvailableUserBySlug :one
-SELECT * FROM users WHERE slug = $1 AND deleted_at IS NULL LIMIT 1;
+SELECT * FROM users WHERE slug = $1 AND deleted_at IS NULL;
 
 -- name: UpsertUser :one
 INSERT INTO users (email, username)

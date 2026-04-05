@@ -49,21 +49,9 @@ func (app *app) PlaygroundCreateAdmin(w http.ResponseWriter, r *http.Request) {
 			Src:  "The woods are lovely, dark and deep",
 		},
 	}
-	var adminAccessPrivate = albumtypes.Access{
-		Type:  "private",
-		Share: []string{},
-	}
-	app.albumsService.Create(r.Context(), admin.ID, "Admin private album", "private", adminAtlas, adminAccessPrivate, time.Date(2021, 3, 1, 12, 30, 0, 0, time.UTC))
-	var adminAccessPublic = albumtypes.Access{
-		Type:  "public",
-		Share: []string{},
-	}
-	app.albumsService.Create(r.Context(), admin.ID, "Admin public album", "public", adminAtlas, adminAccessPublic, time.Date(2022, 5, 13, 12, 30, 0, 0, time.UTC))
-	var adminAccessShared = albumtypes.Access{
-		Type:  "shared",
-		Share: []string{"user@test.test"},
-	}
-	app.albumsService.Create(r.Context(), admin.ID, "Admin shared album", "shared", adminAtlas, adminAccessShared, time.Date(2023, 7, 22, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), admin.ID, "Admin private album", "private", adminAtlas, "private", []string{}, time.Date(2021, 3, 1, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), admin.ID, "Admin public album", "public", adminAtlas, "public", []string{}, time.Date(2022, 5, 13, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), admin.ID, "Admin shared album", "shared", adminAtlas, "shared", []string{"admin@test.test"}, time.Date(2023, 7, 22, 12, 30, 0, 0, time.UTC))
 
 	app.response.SuccessDataOnly(w, r, map[string]string{
 		"playground": "admin created",
@@ -92,21 +80,9 @@ func (app *app) PlaygroundCreateUser(w http.ResponseWriter, r *http.Request) {
 			Src:  "The woods are lovely, dark and deep",
 		},
 	}
-	var userAccessPrivate = albumtypes.Access{
-		Type:  "private",
-		Share: []string{},
-	}
-	app.albumsService.Create(r.Context(), user.ID, "User private album", "private", userAtlas, userAccessPrivate, time.Date(2021, 3, 1, 12, 30, 0, 0, time.UTC))
-	var userAccessPublic = albumtypes.Access{
-		Type:  "public",
-		Share: []string{},
-	}
-	app.albumsService.Create(r.Context(), user.ID, "User public album", "public", userAtlas, userAccessPublic, time.Date(2022, 5, 13, 12, 30, 0, 0, time.UTC))
-	var userAccessShared = albumtypes.Access{
-		Type:  "shared",
-		Share: []string{"admin@test.test"},
-	}
-	app.albumsService.Create(r.Context(), user.ID, "User shared album", "shared", userAtlas, userAccessShared, time.Date(2023, 7, 22, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), user.ID, "User private album", "private", userAtlas, "private", []string{}, time.Date(2021, 3, 1, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), user.ID, "User public album", "public", userAtlas, "public", []string{}, time.Date(2022, 5, 13, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), user.ID, "User shared album", "shared", userAtlas, "shared", []string{"admin@test.test"}, time.Date(2023, 7, 22, 12, 30, 0, 0, time.UTC))
 
 	app.response.SuccessDataOnly(w, r, map[string]string{
 		"playground": "user created",

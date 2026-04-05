@@ -14,11 +14,11 @@ import (
 
 type Service struct {
 	users  *Repository
-	albums AlbumProvider
+	albums AlbumLister
 	tokens *tokens.Manager
 }
 
-func NewService(repo *Repository, albums AlbumProvider, tokens *tokens.Manager) *Service {
+func NewService(repo *Repository, albums AlbumLister, tokens *tokens.Manager) *Service {
 	return &Service{
 		users:  repo,
 		albums: albums,
@@ -26,9 +26,8 @@ func NewService(repo *Repository, albums AlbumProvider, tokens *tokens.Manager) 
 	}
 }
 
-type AlbumProvider interface {
-	DeleteAll(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
-	ListAvailable(ctx context.Context, userID uuid.UUID, viewerEmail string, isOwner bool) ([]albums.AlbumInList, error)
+type AlbumLister interface {
+	ListAvailable(ctx context.Context, userID uuid.UUID, viewerID uuid.UUID, viewerEmail string, cursor string, limit int) ([]albums.AlbumInList, string, error)
 }
 
 /* Get non deleted user info by id */
@@ -49,56 +48,26 @@ func (s *Service) GetAvailableBySlug(ctx context.Context, userSlug string) (User
 	return u, nil
 }
 
-/* Get non deleted user profile by slug */
-func (s *Service) Profile(ctx context.Context, userSlug string, viewerID uuid.UUID, viewerEmail string) (Profile, error) {
-	// Get user
-	u, err := s.users.GetAvailableBySlug(ctx, userSlug)
-	if err != nil {
-		// User not found
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Profile{}, response.ErrUserNotFound.Wrap(err)
-		}
-		return Profile{}, err
-	}
-	// Is owner
-	isOwner := u.ID == viewerID
-	// Get albums
-	a, err := s.albums.ListAvailable(ctx, u.ID, viewerEmail, isOwner)
-	if err != nil {
-		// List error
-		return Profile{}, response.ErrUserNotFound.Wrap(err)
-	}
-
-	// Merge to profile
-	profile := Profile{
-		User:   u,
-		Albums: a,
-	}
-	return profile, nil
-}
-
 /* Get non deleted album list by slug */
-func (s *Service) AlbumList(ctx context.Context, userSlug string, viewerID uuid.UUID, viewerEmail string) ([]albums.AlbumInList, error) {
+func (s *Service) AlbumList(ctx context.Context, userSlug string, viewerID uuid.UUID, viewerEmail string, cursor string, limit int) ([]albums.AlbumInList, string, error) {
 	// Get user
 	u, err := s.users.GetAvailableBySlug(ctx, userSlug)
 	if err != nil {
 		// User not found
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []albums.AlbumInList{}, response.ErrUserNotFound.Wrap(err)
+			return []albums.AlbumInList{}, "", response.ErrUserNotFound.Wrap(err)
 		}
-		return []albums.AlbumInList{}, err
+		return []albums.AlbumInList{}, "", err
 	}
 
-	// Is owner
-	isOwner := u.ID == viewerID
 	// Get albums
-	a, err := s.albums.ListAvailable(ctx, u.ID, viewerEmail, isOwner)
+	a, nextCursor, err := s.albums.ListAvailable(ctx, u.ID, viewerID, viewerEmail, cursor, limit)
 	if err != nil {
 		// List error
-		return []albums.AlbumInList{}, response.ErrUserNotFound.Wrap(err)
+		return []albums.AlbumInList{}, "", response.ErrUserNotFound.Wrap(err)
 	}
 
-	return a, nil
+	return a, nextCursor, nil
 }
 
 /* Upsert confirmed user */
@@ -140,12 +109,6 @@ func (s *Service) Delete(ctx context.Context, actorID uuid.UUID, targetUserID uu
 	// Check if user have permission
 	if actorID != targetUserID {
 		return uuid.Nil, response.ErrNoPermission
-	}
-
-	// Delete all albums
-	_, err := s.albums.DeleteAll(ctx, targetUserID)
-	if err != nil {
-		return uuid.Nil, err
 	}
 
 	// Delete user

@@ -13,17 +13,18 @@ import (
 )
 
 type Album struct {
-	ID        uuid.UUID          `json:"id"`
-	Title     string             `json:"title"`
-	DateAt    time.Time          `json:"date_at"`
-	Atlas     albumtypes.Atlas   `json:"atlas"`
-	Access    albumtypes.Access  `json:"access"`
-	Slug      string             `json:"slug"`
-	IsActive  bool               `json:"is_active"`
-	UserID    uuid.UUID          `json:"user_id"`
-	CreatedAt time.Time          `json:"created_at"`
-	UpdatedAt time.Time          `json:"updated_at"`
-	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+	ID           uuid.UUID          `json:"id"`
+	Title        string             `json:"title"`
+	DateAt       time.Time          `json:"date_at"`
+	Atlas        albumtypes.Atlas   `json:"atlas"`
+	Access       string             `json:"access"`
+	SharedEmails []string           `json:"shared_emails"`
+	Slug         string             `json:"slug"`
+	IsActive     bool               `json:"is_active"`
+	UserID       uuid.UUID          `json:"user_id"`
+	CreatedAt    time.Time          `json:"created_at"`
+	UpdatedAt    time.Time          `json:"updated_at"`
+	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type RefreshToken struct {

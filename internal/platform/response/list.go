@@ -61,6 +61,7 @@ var (
 	ErrTooManyRequests  = &AppError{Code: http.StatusTooManyRequests, Slug: "too_many_requests"}       /* 429 Too Many Requests */
 	ErrNoSecurityHeader = &AppError{Code: http.StatusForbidden, Slug: "no_security_header"}            /* 403 Forbidden */
 	ErrInvalidOrigin    = &AppError{Code: http.StatusForbidden, Slug: "invalid_origin"}                /* 403 Forbidden */
+	ErrInvalidCursor    = &AppError{Code: http.StatusBadRequest, Slug: "invalid_cursor"}                /* 400 Bad Request */
 	ErrUnknown          = &AppError{Code: http.StatusInternalServerError, Slug: "unknown"}             /* 500 Internal Server Error */
 )
 

@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strconv"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -15,10 +15,6 @@ type Manager struct {
 	logger   *slog.Logger
 	ttl      time.Duration
 	graceTTL time.Duration
-}
-
-type UserMapper struct {
-	ID string `json:"id"`
 }
 
 func New(client *redis.Client, defaultTTL time.Duration, logger *slog.Logger) *Manager {
@@ -34,6 +30,15 @@ func New(client *redis.Client, defaultTTL time.Duration, logger *slog.Logger) *M
 func (m *Manager) get(ctx context.Context, key string, target any) error {
 	val, err := m.client.Get(ctx, key).Result()
 	if err == nil {
+		// If value is string or int, set it directly. Otherwise unmarshal it from JSON.
+		if strVal, ok := target.(*string); ok {
+			*strVal = val
+			return nil
+		}
+		if intVal, ok := target.(*int); ok {
+			*intVal, err = strconv.Atoi(val)
+			return err
+		}
 		return json.Unmarshal([]byte(val), target)
 	}
 	return err
@@ -41,84 +46,62 @@ func (m *Manager) get(ctx context.Context, key string, target any) error {
 
 /* Set to cache */
 func (m *Manager) set(ctx context.Context, key string, data any) error {
-	// Detached context with timeout
-	detachedCtx := context.WithoutCancel(ctx)
-	bgCtx, cancel := context.WithTimeout(detachedCtx, 100*time.Millisecond)
-	defer cancel()
-
-	d, err := json.Marshal(data)
+	// Prepare data for cache
+	d, err := m.prepareData(data)
 	if err != nil {
 		return err
 	}
-	return m.client.Set(bgCtx, key, d, m.ttl).Err()
+	return m.client.Set(ctx, key, d, m.ttl).Err()
 }
 
-/* Set to cache with tag */
-func (m *Manager) setWithTag(ctx context.Context, key string, tag string, data any) error {
-	// Detached context with timeout
-	detachedCtx := context.WithoutCancel(ctx)
-	bgCtx, cancel := context.WithTimeout(detachedCtx, 100*time.Millisecond)
-	defer cancel()
-
-	d, err := json.Marshal(data)
-	if err != nil {
-		return err
+/* Prepare data for cache */
+func (m *Manager) prepareData(data any) ([]byte, error) {
+	// If data is string or int, set it directly. Otherwise marshal it to JSON.
+	var d []byte
+	var err error
+	if strVal, ok := data.(string); ok {
+		d = []byte(strVal)
+	} else if intVal, ok := data.(int); ok {
+		d = []byte(strconv.Itoa(intVal))
+	} else {
+		d, err = json.Marshal(data)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	pipe := m.client.Pipeline()
-	pipe.Set(bgCtx, key, d, m.ttl)
-	pipe.SAdd(bgCtx, tag, key)
-	pipe.Expire(bgCtx, tag, m.ttl+m.graceTTL)
-	_, err = pipe.Exec(bgCtx)
-
-	return err
+	return d, nil
 }
 
-/* Invalidates user cache with mapper by user id */
-func (m *Manager) invalidateUser(ctx context.Context, tag uuid.UUID) error {
-	return m.invalidateTag(ctx, "user_id:"+tag.String())
-}
-
-/* Invalidates album cache by user slug and album slug */
-func (m *Manager) invalidateAlbum(ctx context.Context, userSlug string, albumSlug string) error {
-	return m.client.Del(ctx, keyAlbum(userSlug, albumSlug)).Err()
-}
-
-/* Invalidates album list cache by user id */
-func (m *Manager) invalidateAlbumList(ctx context.Context, userID uuid.UUID) error {
-	return m.client.Del(ctx, keyAlbumList(userID)).Err()
-}
-
-/* Invalidates deleted album list cache by user id */
-func (m *Manager) invalidateDeletedAlbumList(ctx context.Context, userID uuid.UUID) error {
-	return m.client.Del(ctx, keyDeletedAlbums(userID)).Err()
-}
-
-/* Invalidates all albums cache by user id */
-func (m *Manager) invalidateAllAlbums(ctx context.Context, tag uuid.UUID) error {
-	tagKey := "owner_id:" + tag.String()
-	return m.invalidateTag(ctx, tagKey)
-}
-
-/* Delete all keys with tag */
-func (m *Manager) invalidateTag(ctx context.Context, tagKey string) error {
-	// Get all keys with tag
-	keys, err := m.client.SMembers(ctx, tagKey).Result()
-	if err != nil {
-		return err
-	}
-
+/* Get multiple items from cache with type T */
+func MGetItems[T any](ctx context.Context, client redis.Cmdable, keys []string) ([]*T, error) {
 	if len(keys) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	// Add tag key to keys
-	keys = append(keys, tagKey)
-	// Delete all keys
-	return m.client.Unlink(ctx, keys...).Err()
+	vals, err := client.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*T, len(vals))
+
+	for i, val := range vals {
+		if val == nil {
+			continue
+		}
+		strVal, ok := val.(string)
+		if !ok {
+			continue
+		}
+		var item T
+		if err := json.Unmarshal([]byte(strVal), &item); err == nil {
+			result[i] = &item
+		}
+	}
+	return result, nil
 }
 
-/* Clears all cache. For development purposes only */
+/* Clears all cached data. For development purposes only */
 func (m *Manager) ClearFullCache(ctx context.Context) error {
 	return m.client.FlushDBAsync(ctx).Err()
 }
