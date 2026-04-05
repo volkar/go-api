@@ -30,6 +30,13 @@ type Cacher interface {
 	OnUserDeleted(ctx context.Context, userID uuid.UUID)
 }
 
+type Role string
+
+const (
+	RoleAdmin Role = "admin"
+	RoleUser  Role = "user"
+)
+
 /* Upsert user by email and username, auth process */
 func (r *Repository) Upsert(ctx context.Context, email string, username string) (User, error) {
 	u, err := r.q.UpsertUser(ctx, db.UpsertUserParams{

@@ -39,7 +39,7 @@ type UsersService interface {
 }
 
 /* Get email and name from OAuth user, creates access and refresh tokens */
-func (s *Service) upsertOAuthUser(ctx context.Context, oauthUser goth.User) (users.User, error) {
+func (s *Service) UpsertOAuthUser(ctx context.Context, oauthUser goth.User) (users.User, error) {
 	if oauthUser.Email == "" {
 		return users.User{}, response.ErrOAuthNoEmail
 	}
@@ -60,7 +60,7 @@ func (s *Service) upsertOAuthUser(ctx context.Context, oauthUser goth.User) (use
 }
 
 /* Creates access and refresh tokens for user */
-func (s *Service) issueSessionTokens(ctx context.Context, user users.User, meta request.Metadata) (string, string, error) {
+func (s *Service) IssueSessionTokens(ctx context.Context, user users.User, meta request.Metadata) (string, string, error) {
 	// Generate refresh token random string
 	refresh, err := s.tokens.GenerateRefreshString()
 	if err != nil {
@@ -93,7 +93,7 @@ func (s *Service) consumeOtherRefreshTokens(ctx context.Context, userID uuid.UUI
 }
 
 /* Delete old refresh token and get a new one */
-func (s *Service) rotateRefreshToken(ctx context.Context, oldRefreshToken string, meta request.Metadata) (string, string, error) {
+func (s *Service) RotateRefreshToken(ctx context.Context, oldRefreshToken string, meta request.Metadata) (string, string, error) {
 	// Old refresh token hash
 	oldHash := s.tokens.Hash(oldRefreshToken)
 

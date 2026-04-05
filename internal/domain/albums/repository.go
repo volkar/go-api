@@ -37,6 +37,11 @@ type Cacher interface {
 	OnAlbumDeleted(ctx context.Context, album db.Album)
 }
 
+type albumPaginationRow struct {
+	ID     uuid.UUID
+	DateAt time.Time
+}
+
 var albumSlugsGroup singleflight.Group
 
 /* Get available album by user slug and album slug from cache */
@@ -91,7 +96,7 @@ func (r *Repository) ListAvailable(ctx context.Context, userID uuid.UUID, viewer
 
 	// Fetch list of IDs from database
 	fetchLimit := limit + 1
-	idRows, err := r.q.ListAvailableAlbumIDs(ctx, db.ListAvailableAlbumIDsParams{
+	dbRows, err := r.q.ListAvailableAlbumIDs(ctx, db.ListAvailableAlbumIDsParams{
 		UserID:       userID,
 		ViewerID:     viewerID,
 		ViewerEmail:  viewerEmail,
@@ -102,73 +107,17 @@ func (r *Repository) ListAvailable(ctx context.Context, userID uuid.UUID, viewer
 	if err != nil {
 		return []Album{}, "", err
 	}
-	if len(idRows) == 0 {
-		return []Album{}, "", nil
-	}
 
-	// Calculate next cursor if needed
-	var nextCursor string
-	if len(idRows) == int(fetchLimit) {
-		idRows = idRows[:limit]
-		lastItem := idRows[len(idRows)-1]
-		var lastID uuid.UUID = lastItem.ID
-		nextCursor, _ = r.cursorManager.Encode(lastItem.DateAt, lastID.String())
-	}
-
-	// Prepare list of IDs
-	albumIDs := make([]uuid.UUID, len(idRows))
-	for i, row := range idRows {
-		albumIDs[i] = row.ID
-	}
-
-	albums, err := r.cache.GetAlbumList(ctx, albumIDs)
-
-	// Process cached results and identify Cache Misses
-	resultMap := make(map[uuid.UUID]db.Album, len(idRows))
-	var missingIDs []uuid.UUID
-
-	for _, row := range idRows {
-		var uid uuid.UUID = row.ID
-		if albums != nil && albums[uid].ID != uuid.Nil {
-			// Cache HIT, add to result map
-			resultMap[uid] = albums[uid]
-			continue
-		}
-		missingIDs = append(missingIDs, uid)
-	}
-
-	// Fetch missing entities from database
-	if len(missingIDs) > 0 {
-		dbAlbums, err := r.q.GetAlbumsByIDs(ctx, missingIDs)
-		if err != nil {
-			return []Album{}, "", err
-		}
-
-		// Process fetched DB models
-		for _, dbAlbum := range dbAlbums {
-			var uid uuid.UUID = dbAlbum.ID
-
-			resultMap[uid] = dbAlbum
-
-			// Asynchronously save missing entities to Cache
-			go func(a db.Album) {
-				bgCtx := context.WithoutCancel(ctx)
-				r.cache.SetAlbum(bgCtx, a)
-			}(dbAlbum)
+	// Map sqlc specific type to our common pagination row
+	idRows := make([]albumPaginationRow, len(dbRows))
+	for i, row := range dbRows {
+		idRows[i] = albumPaginationRow{
+			ID:     row.ID,
+			DateAt: row.DateAt,
 		}
 	}
 
-	// Reconstruct the strict ordering requested by the original ID query
-	// (Since Map iteration is random and GetAlbumsByIDs has no ORDER BY)
-	finalAlbums := make([]Album, 0, len(idRows))
-	for _, row := range idRows {
-		var uid uuid.UUID = row.ID
-		if album, ok := resultMap[uid]; ok {
-			finalAlbums = append(finalAlbums, FromDB(album))
-		}
-	}
-
-	return finalAlbums, nextCursor, nil
+	return r.hydrateAlbumsList(ctx, idRows, limit)
 }
 
 /* Get list of paginated albums by user id */
@@ -181,7 +130,7 @@ func (r *Repository) ListDeleted(ctx context.Context, userID uuid.UUID, cursor s
 
 	// Fetch list of IDs from database
 	fetchLimit := limit + 1
-	idRows, err := r.q.ListDeletedAlbumIDs(ctx, db.ListDeletedAlbumIDsParams{
+	dbRows, err := r.q.ListDeletedAlbumIDs(ctx, db.ListDeletedAlbumIDsParams{
 		UserID:       userID,
 		CursorDateAt: cursorDate,
 		CursorID:     cursorID,
@@ -190,73 +139,17 @@ func (r *Repository) ListDeleted(ctx context.Context, userID uuid.UUID, cursor s
 	if err != nil {
 		return []Album{}, "", err
 	}
-	if len(idRows) == 0 {
-		return []Album{}, "", nil
-	}
 
-	// Calculate next cursor if needed
-	var nextCursor string
-	if len(idRows) == int(fetchLimit) {
-		idRows = idRows[:limit]
-		lastItem := idRows[len(idRows)-1]
-		var lastID uuid.UUID = lastItem.ID
-		nextCursor, _ = r.cursorManager.Encode(lastItem.DateAt, lastID.String())
-	}
-
-	// Prepare list of IDs
-	albumIDs := make([]uuid.UUID, len(idRows))
-	for i, row := range idRows {
-		albumIDs[i] = row.ID
-	}
-
-	albums, err := r.cache.GetAlbumList(ctx, albumIDs)
-
-	// Process cached results and identify Cache Misses
-	resultMap := make(map[uuid.UUID]db.Album, len(idRows))
-	var missingIDs []uuid.UUID
-
-	for _, row := range idRows {
-		var uid uuid.UUID = row.ID
-		if albums != nil && albums[uid].ID != uuid.Nil {
-			// Cache HIT, add to result map
-			resultMap[uid] = albums[uid]
-			continue
-		}
-		missingIDs = append(missingIDs, uid)
-	}
-
-	// Fetch missing entities from database
-	if len(missingIDs) > 0 {
-		dbAlbums, err := r.q.GetAlbumsByIDs(ctx, missingIDs)
-		if err != nil {
-			return []Album{}, "", err
-		}
-
-		// Process fetched DB models
-		for _, dbAlbum := range dbAlbums {
-			var uid uuid.UUID = dbAlbum.ID
-
-			resultMap[uid] = dbAlbum
-
-			// Asynchronously save missing entities to Cache
-			go func(a db.Album) {
-				bgCtx := context.WithoutCancel(ctx)
-				r.cache.SetAlbum(bgCtx, a)
-			}(dbAlbum)
+	// Map sqlc specific type to our common pagination row
+	idRows := make([]albumPaginationRow, len(dbRows))
+	for i, row := range dbRows {
+		idRows[i] = albumPaginationRow{
+			ID:     row.ID,
+			DateAt: row.DateAt,
 		}
 	}
 
-	// Reconstruct the strict ordering requested by the original ID query
-	// (Since Map iteration is random and GetAlbumsByIDs has no ORDER BY)
-	finalAlbums := make([]Album, 0, len(idRows))
-	for _, row := range idRows {
-		var uid uuid.UUID = row.ID
-		if album, ok := resultMap[uid]; ok {
-			finalAlbums = append(finalAlbums, FromDB(album))
-		}
-	}
-
-	return finalAlbums, nextCursor, nil
+	return r.hydrateAlbumsList(ctx, idRows, limit)
 }
 
 /* Create album */
@@ -360,4 +253,72 @@ func (r *Repository) Purge(ctx context.Context, userID uuid.UUID, albumID uuid.U
 	}
 
 	return id, nil
+}
+
+func (r *Repository) hydrateAlbumsList(ctx context.Context, idRows []albumPaginationRow, limit int32) ([]Album, string, error) {
+	if len(idRows) == 0 {
+		return []Album{}, "", nil
+	}
+
+	fetchLimit := limit + 1
+
+	// Calculate next cursor if needed
+	var nextCursor string
+	if len(idRows) == int(fetchLimit) {
+		idRows = idRows[:limit]
+		lastItem := idRows[len(idRows)-1]
+		nextCursor, _ = r.cursorManager.Encode(lastItem.DateAt, lastItem.ID.String())
+	}
+
+	// Prepare list of IDs
+	albumIDs := make([]uuid.UUID, len(idRows))
+	for i, row := range idRows {
+		albumIDs[i] = row.ID
+	}
+
+	// Get albums from cache
+	albums, _ := r.cache.GetAlbumList(ctx, albumIDs)
+
+	resultMap := make(map[uuid.UUID]db.Album, len(idRows))
+	var missingIDs []uuid.UUID
+
+	// Separate cached and missing albums
+	for _, uid := range albumIDs {
+		if albums != nil && albums[uid].ID != uuid.Nil {
+			resultMap[uid] = albums[uid]
+		} else {
+			missingIDs = append(missingIDs, uid)
+		}
+	}
+
+	// Process missing albums
+	if len(missingIDs) > 0 {
+		dbAlbums, err := r.q.GetAlbumsByIDs(ctx, missingIDs)
+		if err != nil {
+			return []Album{}, "", err
+		}
+
+		// Detach context from parent
+		bgCtx := context.WithoutCancel(ctx)
+
+		for _, dbAlbum := range dbAlbums {
+			resultMap[dbAlbum.ID] = dbAlbum
+			// Async set missing albums to cache
+			go func(a db.Album, bCtx context.Context) {
+				timeoutCtx, cancel := context.WithTimeout(bCtx, 100*time.Millisecond)
+				defer cancel()
+				r.cache.SetAlbum(timeoutCtx, a)
+			}(dbAlbum, bgCtx)
+		}
+	}
+
+	// Restore strict ordering
+	finalAlbums := make([]Album, 0, len(idRows))
+	for _, row := range idRows {
+		if album, ok := resultMap[row.ID]; ok {
+			finalAlbums = append(finalAlbums, FromDB(album))
+		}
+	}
+
+	return finalAlbums, nextCursor, nil
 }

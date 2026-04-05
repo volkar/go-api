@@ -65,7 +65,7 @@ func (app *app) ETagChecker(next http.Handler) http.Handler {
 
 		// Calculate hash from response
 		data := recorder.body.Bytes()
-		etag := fmt.Sprintf("%x", sha1.Sum(data))
+		etag := fmt.Sprintf(`"%x"`, sha1.Sum(data))
 
 		// Check if client sent If-None-Match header
 		if r.Header.Get("If-None-Match") == etag {

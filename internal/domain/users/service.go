@@ -76,8 +76,8 @@ func (s *Service) Upsert(ctx context.Context, email string, username string) (Us
 }
 
 /* Create user. Use with caution! Users must be created with Upsert function via OAuth process and have validated email */
-func (s *Service) Create(ctx context.Context, email string, username string, slug string, role string) (User, error) {
-	return s.users.Create(ctx, email, username, slug, role)
+func (s *Service) Create(ctx context.Context, email string, username string, slug string, role Role) (User, error) {
+	return s.users.Create(ctx, email, username, slug, string(role))
 }
 
 /* Update user info */

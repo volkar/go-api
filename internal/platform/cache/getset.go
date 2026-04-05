@@ -23,7 +23,7 @@ var resolveAlbumBySlugsScript = redis.NewScript(`
     end
 
     -- Get Album ID
-    local album_slug_key = album_slug_prefix .. user_id .. "/" .. target_album_slug
+    local album_slug_key = album_slug_prefix .. user_id .. ":" .. target_album_slug
     local album_id = redis.call("GET", album_slug_key)
     if not album_id then
         return {err = "album_not_found"}

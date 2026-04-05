@@ -2,6 +2,7 @@ package main
 
 import (
 	"api/internal/domain/albums/albumtypes"
+	"api/internal/domain/users"
 	"api/internal/platform/request"
 	"net/http"
 	"time"
@@ -29,7 +30,7 @@ func (app *app) RoutesPlayground(r *chi.Mux) {
 
 /* Creates admin with 3 albums */
 func (app *app) PlaygroundCreateAdmin(w http.ResponseWriter, r *http.Request) {
-	admin, err := app.usersService.Create(r.Context(), "admin@test.test", "Almighty Admin", "admin", "admin")
+	admin, err := app.usersService.Create(r.Context(), "admin@test.test", "Almighty Admin", "admin", users.RoleAdmin)
 	if err != nil {
 		// User may be already created. Ignore
 		app.response.SuccessDataOnly(w, r, map[string]string{
@@ -60,7 +61,7 @@ func (app *app) PlaygroundCreateAdmin(w http.ResponseWriter, r *http.Request) {
 
 /* Creates user with 3 albums */
 func (app *app) PlaygroundCreateUser(w http.ResponseWriter, r *http.Request) {
-	user, err := app.usersService.Create(r.Context(), "user@test.test", "Just User", "user", "user")
+	user, err := app.usersService.Create(r.Context(), "user@test.test", "Just User", "user", users.RoleUser)
 	if err != nil {
 		// User may be already created. Ignore
 		app.response.SuccessDataOnly(w, r, map[string]string{

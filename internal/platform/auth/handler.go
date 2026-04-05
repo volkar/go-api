@@ -70,7 +70,7 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Upsert confirmed user to database
-	user, err := h.auth.upsertOAuthUser(r.Context(), gothUser)
+	user, err := h.auth.UpsertOAuthUser(r.Context(), gothUser)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return
@@ -79,7 +79,7 @@ func (h *Handler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	// Get metadata for refresh token
 	meta := request.GetMetaFromRequest(r)
 	// Generate access and refresh tokens
-	access, refresh, err := h.auth.issueSessionTokens(r.Context(), user, meta)
+	access, refresh, err := h.auth.IssueSessionTokens(r.Context(), user, meta)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return
@@ -146,7 +146,7 @@ func (h *Handler) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	// Get metadata for refresh token
 	meta := request.GetMetaFromRequest(r)
 	// Exchange old refresh token
-	newAccess, newRefresh, err := h.auth.rotateRefreshToken(r.Context(), oldRefreshToken, meta)
+	newAccess, newRefresh, err := h.auth.RotateRefreshToken(r.Context(), oldRefreshToken, meta)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return

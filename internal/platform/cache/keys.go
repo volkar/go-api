@@ -26,7 +26,7 @@ func keyAlbumEntity(albumID uuid.UUID) string {
 	return AlbumEntityPrefix + albumID.String()
 }
 
-/* Cache key "c:a_m:USER_ID/ALBUM_SLUG" */
+/* Cache key "c:a_m:USER_ID:ALBUM_SLUG" */
 func keyAlbumMapper(userID uuid.UUID, albumSlug string) string {
-	return AlbumMapperPrefix + userID.String() + "/" + albumSlug
+	return AlbumMapperPrefix + userID.String() + ":" + albumSlug
 }
