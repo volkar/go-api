@@ -49,6 +49,13 @@ A robust, production-ready backend template designed for modern SPAs (Nuxt, Next
 
 - **Granular Access Control (RBAC)**: Built-in support for multiple user roles and flexible pre-route authorization middlewares.
 
+
+## Data Architecture & Atlas Structure
+
+At the core of the system lies a highly scalable, hybrid data model designed to balance strict relational integrity with schema-less flexibility. The primary entity is the **User**, who acts as the owner of multiple **Albums**. Each Album is safeguarded by a granular, domain-level Access Control layer. Rather than relying on simple public/private toggles, Albums support complex permission matrices—including specific allowed emails (`shared_emails`), ownership validation, and active state flags. This ensures that sensitive data is strictly gated, effectively obfuscating the existence of private albums from unauthorized requests (returning a 404 instead of a 403).
+
+The true power of the Album resides in its **Atlas** — a dynamic structural core stored as native PostgreSQL `JSONB`. While the overarching architecture benefits from type-safe SQL, the Atlas serves as a flexible canvas containing an array of customizable "blocks" (e.g., text, galleries, interactive media). This hybrid approach allows modern frontend frameworks (like Nuxt or Next.js) to render deeply nested, complex UI components seamlessly, without requiring continuous backend database migrations for every new block type or feature iteration.
+
 ## Authentication endpoints
 
 **GET** `/auth/google/provider`
