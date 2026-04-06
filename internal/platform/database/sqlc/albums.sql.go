@@ -9,27 +9,28 @@ import (
 	"context"
 	"time"
 
-	"api/internal/domain/albums/albumtypes"
+	"api/internal/domain/shared/types"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createAlbum = `-- name: CreateAlbum :one
-INSERT INTO albums (user_id, title, slug, atlas, access, shared_emails, date_at)
-SELECT u.id, $1, $2, $3, $4, $5, $6
+INSERT INTO albums (user_id, title, slug, atlas, access, is_active, shared_emails, date_at)
+SELECT u.id, $1, $2, $3, $4, $5, $6, $7
 FROM users u
-WHERE u.id = $7 AND u.deleted_at IS NULL
+WHERE u.id = $8 AND u.deleted_at IS NULL
 RETURNING id, title, date_at, atlas, access, shared_emails, slug, is_active, user_id, created_at, updated_at, deleted_at
 `
 
 type CreateAlbumParams struct {
-	Title        string           `json:"title"`
-	Slug         string           `json:"slug"`
-	Atlas        albumtypes.Atlas `json:"atlas"`
-	Access       string           `json:"access"`
-	SharedEmails []string         `json:"shared_emails"`
-	DateAt       time.Time        `json:"date_at"`
-	UserID       uuid.UUID        `json:"user_id"`
+	Title        string       `json:"title"`
+	Slug         string       `json:"slug"`
+	Atlas        types.Atlas  `json:"atlas"`
+	Access       types.Access `json:"access"`
+	IsActive     bool         `json:"is_active"`
+	SharedEmails []string     `json:"shared_emails"`
+	DateAt       time.Time    `json:"date_at"`
+	UserID       uuid.UUID    `json:"user_id"`
 }
 
 func (q *Queries) CreateAlbum(ctx context.Context, arg CreateAlbumParams) (Album, error) {
@@ -38,10 +39,41 @@ func (q *Queries) CreateAlbum(ctx context.Context, arg CreateAlbumParams) (Album
 		arg.Slug,
 		arg.Atlas,
 		arg.Access,
+		arg.IsActive,
 		arg.SharedEmails,
 		arg.DateAt,
 		arg.UserID,
 	)
+	var i Album
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.DateAt,
+		&i.Atlas,
+		&i.Access,
+		&i.SharedEmails,
+		&i.Slug,
+		&i.IsActive,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getAlbum = `-- name: GetAlbum :one
+SELECT id, title, date_at, atlas, access, shared_emails, slug, is_active, user_id, created_at, updated_at, deleted_at FROM albums
+WHERE user_id = $1 AND slug = $2 AND deleted_at IS NULL
+`
+
+type GetAlbumParams struct {
+	UserID    uuid.UUID `json:"user_id"`
+	AlbumSlug string    `json:"album_slug"`
+}
+
+func (q *Queries) GetAlbum(ctx context.Context, arg GetAlbumParams) (Album, error) {
+	row := q.db.QueryRow(ctx, getAlbum, arg.UserID, arg.AlbumSlug)
 	var i Album
 	err := row.Scan(
 		&i.ID,
@@ -99,61 +131,6 @@ func (q *Queries) GetAlbumsByIDs(ctx context.Context, ids []uuid.UUID) ([]Album,
 	return items, nil
 }
 
-const getAvailableAlbumBySlugs = `-- name: GetAvailableAlbumBySlugs :one
-SELECT a.id, a.title, a.date_at, a.atlas, a.access, a.shared_emails, a.slug, a.is_active, a.user_id, a.created_at, a.updated_at, a.deleted_at, u.id, u.username, u.email, u.role, u.slug, u.created_at, u.updated_at, u.deleted_at FROM albums a
-JOIN users u ON a.user_id = u.id
-WHERE u.slug = $1 AND a.slug = $2 AND a.is_active AND a.deleted_at IS NULL AND u.deleted_at IS NULL AND (
-      access = 'public'
-      OR (access = 'shared' AND $3::text = ANY(shared_emails))
-      OR $4::uuid = a.user_id::uuid
-  )
-`
-
-type GetAvailableAlbumBySlugsParams struct {
-	UserSlug    string    `json:"user_slug"`
-	AlbumSlug   string    `json:"album_slug"`
-	ViewerEmail string    `json:"viewer_email"`
-	ViewerID    uuid.UUID `json:"viewer_id"`
-}
-
-type GetAvailableAlbumBySlugsRow struct {
-	Album Album `json:"album"`
-	User  User  `json:"user"`
-}
-
-func (q *Queries) GetAvailableAlbumBySlugs(ctx context.Context, arg GetAvailableAlbumBySlugsParams) (GetAvailableAlbumBySlugsRow, error) {
-	row := q.db.QueryRow(ctx, getAvailableAlbumBySlugs,
-		arg.UserSlug,
-		arg.AlbumSlug,
-		arg.ViewerEmail,
-		arg.ViewerID,
-	)
-	var i GetAvailableAlbumBySlugsRow
-	err := row.Scan(
-		&i.Album.ID,
-		&i.Album.Title,
-		&i.Album.DateAt,
-		&i.Album.Atlas,
-		&i.Album.Access,
-		&i.Album.SharedEmails,
-		&i.Album.Slug,
-		&i.Album.IsActive,
-		&i.Album.UserID,
-		&i.Album.CreatedAt,
-		&i.Album.UpdatedAt,
-		&i.Album.DeletedAt,
-		&i.User.ID,
-		&i.User.Username,
-		&i.User.Email,
-		&i.User.Role,
-		&i.User.Slug,
-		&i.User.CreatedAt,
-		&i.User.UpdatedAt,
-		&i.User.DeletedAt,
-	)
-	return i, err
-}
-
 const hardDeleteAlbum = `-- name: HardDeleteAlbum :one
 DELETE FROM albums a
 USING users u
@@ -183,9 +160,9 @@ FROM albums
 WHERE user_id = $1
   AND deleted_at IS NULL
   AND (
-      access = 'public'
-      OR (access = 'shared' AND $2::text = ANY(shared_emails))
-      OR $3::uuid = $1::uuid
+      (access = 'public' AND is_active)
+      OR (access = 'shared' AND is_active AND $2::text = ANY(shared_emails))
+      OR ($3::uuid = $1::uuid)
   )
   AND (
       $4::timestamptz IS NULL
@@ -395,15 +372,15 @@ RETURNING albums.id, albums.title, albums.date_at, albums.atlas, albums.access, 
 `
 
 type UpdateAlbumParams struct {
-	Title        string           `json:"title"`
-	Slug         string           `json:"slug"`
-	Atlas        albumtypes.Atlas `json:"atlas"`
-	Access       string           `json:"access"`
-	SharedEmails []string         `json:"shared_emails"`
-	DateAt       time.Time        `json:"date_at"`
-	IsActive     bool             `json:"is_active"`
-	AlbumID      uuid.UUID        `json:"album_id"`
-	UserID       uuid.UUID        `json:"user_id"`
+	Title        string       `json:"title"`
+	Slug         string       `json:"slug"`
+	Atlas        types.Atlas  `json:"atlas"`
+	Access       types.Access `json:"access"`
+	SharedEmails []string     `json:"shared_emails"`
+	DateAt       time.Time    `json:"date_at"`
+	IsActive     bool         `json:"is_active"`
+	AlbumID      uuid.UUID    `json:"album_id"`
+	UserID       uuid.UUID    `json:"user_id"`
 }
 
 type UpdateAlbumRow struct {

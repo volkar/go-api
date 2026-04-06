@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"strconv"
 	"time"
 
@@ -11,23 +10,24 @@ import (
 )
 
 type Manager struct {
-	client   *redis.Client
-	logger   *slog.Logger
-	ttl      time.Duration
-	graceTTL time.Duration
+	client *redis.Client
+	ttl    time.Duration
 }
 
-func New(client *redis.Client, defaultTTL time.Duration, logger *slog.Logger) *Manager {
+func New(client *redis.Client, defaultTTL time.Duration) *Manager {
 	return &Manager{
-		client:   client,
-		logger:   logger,
-		ttl:      defaultTTL,
-		graceTTL: 5 * time.Minute,
+		client: client,
+		ttl:    defaultTTL,
 	}
 }
 
+/* Get redis client */
+func (m *Manager) Client() *redis.Client {
+	return m.client
+}
+
 /* Get from cache with cast to target */
-func (m *Manager) get(ctx context.Context, key string, target any) error {
+func (m *Manager) Get(ctx context.Context, key string, target any) error {
 	val, err := m.client.Get(ctx, key).Result()
 	if err == nil {
 		// If value is string or int, set it directly. Otherwise unmarshal it from JSON.
@@ -45,20 +45,10 @@ func (m *Manager) get(ctx context.Context, key string, target any) error {
 }
 
 /* Set to cache */
-func (m *Manager) set(ctx context.Context, key string, data any) error {
-	// Prepare data for cache
-	d, err := m.prepareData(data)
-	if err != nil {
-		return err
-	}
-	return m.client.Set(ctx, key, d, m.ttl).Err()
-}
-
-/* Prepare data for cache */
-func (m *Manager) prepareData(data any) ([]byte, error) {
-	// If data is string or int, set it directly. Otherwise marshal it to JSON.
+func (m *Manager) Set(ctx context.Context, key string, data any) error {
 	var d []byte
 	var err error
+	// If data is string or int, set it directly. Otherwise marshal it to JSON.
 	if strVal, ok := data.(string); ok {
 		d = []byte(strVal)
 	} else if intVal, ok := data.(int); ok {
@@ -66,10 +56,20 @@ func (m *Manager) prepareData(data any) ([]byte, error) {
 	} else {
 		d, err = json.Marshal(data)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return d, nil
+	return m.client.Set(ctx, key, d, m.ttl).Err()
+}
+
+/* Delete keys from cache */
+func (m *Manager) Unlink(ctx context.Context, keys ...string) error {
+	return m.client.Unlink(ctx, keys...).Err()
+}
+
+/* Run LUA script */
+func (m *Manager) RunScript(ctx context.Context, script *redis.Script, keys []string, args ...any) (any, error) {
+	return script.Run(ctx, m.client, keys, args...).Result()
 }
 
 /* Get multiple items from cache with type T */

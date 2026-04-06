@@ -97,7 +97,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh_token")
 	if err == nil && cookie.Value != "" {
 		// Consume old refresh token
-		err = h.auth.consumeRefreshToken(r.Context(), cookie.Value)
+		err = h.auth.ConsumeRefreshToken(r.Context(), cookie.Value)
 		if err != nil {
 			h.logger.Warn("Logout: old refresh token consumption error", "error", err)
 		}
@@ -128,7 +128,7 @@ func (h *Handler) TerminateOtherSessions(w http.ResponseWriter, r *http.Request)
 	refresh := cookie.Value
 
 	// Consume other refresh tokens (exit from other devices)
-	h.auth.consumeOtherRefreshTokens(r.Context(), claims.UserID, refresh)
+	h.auth.ConsumeOtherRefreshTokens(r.Context(), claims.UserID, refresh)
 
 	h.response.Success(w, r, response.SuccessLoggedOutOthers)
 }

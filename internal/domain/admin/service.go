@@ -10,23 +10,23 @@ import (
 )
 
 type Service struct {
-	admin *Repository
+	users UserProvider
 }
 
-func NewService(repo *Repository) *Service {
+func NewService(users UserProvider) *Service {
 	return &Service{
-		admin: repo,
+		users: users,
 	}
+}
+
+type UserProvider interface {
+	PurgeUser(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
+	RestoreUser(ctx context.Context, id uuid.UUID) (uuid.UUID, string, error)
 }
 
 /* Hard delete user (with all albums via db onDelete) */
-func (s *Service) PurgeUser(ctx context.Context, actorID uuid.UUID, actorRole string, targetID uuid.UUID) (uuid.UUID, error) {
-	// Check if actor role is admin and admin is not deleting himself
-	if actorRole != "admin" || actorID == targetID {
-		return uuid.Nil, response.ErrNoPermission
-	}
-
-	uID, err := s.admin.PurgeUser(ctx, targetID)
+func (s *Service) PurgeUser(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	uID, err := s.users.PurgeUser(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return uuid.Nil, response.ErrUserNotFound.Wrap(err)
@@ -37,12 +37,8 @@ func (s *Service) PurgeUser(ctx context.Context, actorID uuid.UUID, actorRole st
 }
 
 /* Restore deleted user */
-func (s *Service) RestoreUser(ctx context.Context, actorID uuid.UUID, actorRole string, targetUserID uuid.UUID) (uuid.UUID, string, error) {
-	// Check if actor role is admin and admin is not restoring himself
-	if actorRole != "admin" || actorID == targetUserID {
-		return uuid.Nil, "", response.ErrNoPermission
-	}
-	id, slug, err := s.admin.RestoreUser(ctx, targetUserID)
+func (s *Service) RestoreUser(ctx context.Context, id uuid.UUID) (uuid.UUID, string, error) {
+	id, slug, err := s.users.RestoreUser(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return uuid.Nil, "", response.ErrUserNotFound.Wrap(err)

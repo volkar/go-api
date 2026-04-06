@@ -1,6 +1,7 @@
 package users
 
 import (
+	"api/internal/domain/shared/types"
 	db "api/internal/platform/database/sqlc"
 
 	"github.com/google/uuid"
@@ -9,11 +10,11 @@ import (
 // Full user (stored in cache, standart type)
 
 type User struct {
-	ID       uuid.UUID `json:"id"`
-	Email    string    `json:"email"`
-	Username string    `json:"username"`
-	Slug     string    `json:"slug"`
-	Role     string    `json:"role"`
+	ID       uuid.UUID  `json:"id"`
+	Email    string     `json:"email"`
+	Username string     `json:"username"`
+	Slug     string     `json:"slug"`
+	Role     types.Role `json:"role"`
 }
 
 func FromDB(u db.User) User {

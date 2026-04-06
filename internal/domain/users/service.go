@@ -1,7 +1,7 @@
 package users
 
 import (
-	"api/internal/domain/albums"
+	"api/internal/domain/shared/types"
 	"api/internal/domain/tokens"
 	"api/internal/platform/response"
 	"context"
@@ -14,25 +14,19 @@ import (
 
 type Service struct {
 	users  *Repository
-	albums AlbumLister
 	tokens *tokens.Manager
 }
 
-func NewService(repo *Repository, albums AlbumLister, tokens *tokens.Manager) *Service {
+func NewService(repo *Repository, tokens *tokens.Manager) *Service {
 	return &Service{
 		users:  repo,
-		albums: albums,
 		tokens: tokens,
 	}
 }
 
-type AlbumLister interface {
-	ListAvailable(ctx context.Context, userID uuid.UUID, viewerID uuid.UUID, viewerEmail string, cursor string, limit int) ([]albums.AlbumInList, string, error)
-}
-
 /* Get non deleted user info by id */
-func (s *Service) GetAvailable(ctx context.Context, userID uuid.UUID) (User, error) {
-	u, err := s.users.GetAvailable(ctx, userID)
+func (s *Service) GetAvailable(ctx context.Context, id uuid.UUID) (User, error) {
+	u, err := s.users.GetAvailable(ctx, id)
 	if err != nil {
 		return User{}, response.ErrUserNotFound.Wrap(err)
 	}
@@ -40,34 +34,12 @@ func (s *Service) GetAvailable(ctx context.Context, userID uuid.UUID) (User, err
 }
 
 /* Get non deleted user info by slug */
-func (s *Service) GetAvailableBySlug(ctx context.Context, userSlug string) (User, error) {
-	u, err := s.users.GetAvailableBySlug(ctx, userSlug)
+func (s *Service) GetAvailableBySlug(ctx context.Context, slug string) (User, error) {
+	u, err := s.users.GetAvailableBySlug(ctx, slug)
 	if err != nil {
 		return User{}, response.ErrUserNotFound.Wrap(err)
 	}
 	return u, nil
-}
-
-/* Get non deleted album list by slug */
-func (s *Service) AlbumList(ctx context.Context, userSlug string, viewerID uuid.UUID, viewerEmail string, cursor string, limit int) ([]albums.AlbumInList, string, error) {
-	// Get user
-	u, err := s.users.GetAvailableBySlug(ctx, userSlug)
-	if err != nil {
-		// User not found
-		if errors.Is(err, pgx.ErrNoRows) {
-			return []albums.AlbumInList{}, "", response.ErrUserNotFound.Wrap(err)
-		}
-		return []albums.AlbumInList{}, "", err
-	}
-
-	// Get albums
-	a, nextCursor, err := s.albums.ListAvailable(ctx, u.ID, viewerID, viewerEmail, cursor, limit)
-	if err != nil {
-		// List error
-		return []albums.AlbumInList{}, "", response.ErrUserNotFound.Wrap(err)
-	}
-
-	return a, nextCursor, nil
 }
 
 /* Upsert confirmed user */
@@ -76,17 +48,13 @@ func (s *Service) Upsert(ctx context.Context, email string, username string) (Us
 }
 
 /* Create user. Use with caution! Users must be created with Upsert function via OAuth process and have validated email */
-func (s *Service) Create(ctx context.Context, email string, username string, slug string, role Role) (User, error) {
-	return s.users.Create(ctx, email, username, slug, string(role))
+func (s *Service) Create(ctx context.Context, email string, username string, slug string, role types.Role) (User, error) {
+	return s.users.Create(ctx, email, username, slug, role)
 }
 
 /* Update user info */
-func (s *Service) Update(ctx context.Context, actorID uuid.UUID, targetUserID uuid.UUID, userSlug string, username string) (User, error) {
-	// Check if user have permission
-	if actorID != targetUserID {
-		return User{}, response.ErrNoPermission
-	}
-	u, err := s.users.Update(ctx, targetUserID, username, userSlug)
+func (s *Service) Update(ctx context.Context, id uuid.UUID, slug string, username string) (User, error) {
+	u, err := s.users.Update(ctx, id, username, slug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// User not found
@@ -105,14 +73,9 @@ func (s *Service) Update(ctx context.Context, actorID uuid.UUID, targetUserID uu
 }
 
 /* Delete user */
-func (s *Service) Delete(ctx context.Context, actorID uuid.UUID, targetUserID uuid.UUID) (uuid.UUID, error) {
-	// Check if user have permission
-	if actorID != targetUserID {
-		return uuid.Nil, response.ErrNoPermission
-	}
-
+func (s *Service) Delete(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
 	// Delete user
-	id, err := s.users.Delete(ctx, targetUserID)
+	id, err := s.users.Delete(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return uuid.Nil, response.ErrNoPermission.Wrap(err)
@@ -121,7 +84,17 @@ func (s *Service) Delete(ctx context.Context, actorID uuid.UUID, targetUserID uu
 	}
 
 	// Delete all user tokens
-	s.tokens.DeleteAllRefreshForUser(ctx, targetUserID)
+	s.tokens.DeleteAllRefreshForUser(ctx, id)
 
 	return id, err
+}
+
+/* Hard delete user (with all albums via db onDelete) */
+func (s *Service) PurgeUser(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	return s.users.PurgeUser(ctx, id)
+}
+
+/* Restore deleted user */
+func (s *Service) RestoreUser(ctx context.Context, id uuid.UUID) (uuid.UUID, string, error) {
+	return s.users.RestoreUser(ctx, id)
 }

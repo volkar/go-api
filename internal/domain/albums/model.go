@@ -1,7 +1,7 @@
 package albums
 
 import (
-	"api/internal/domain/albums/albumtypes"
+	"api/internal/domain/shared/types"
 	db "api/internal/platform/database/sqlc"
 	"time"
 
@@ -11,15 +11,15 @@ import (
 // Full album (stored in cache, standart type)
 
 type Album struct {
-	ID           uuid.UUID        `json:"id"`
-	UserID       uuid.UUID        `json:"user_id"`
-	Title        string           `json:"title"`
-	Slug         string           `json:"slug"`
-	Atlas        albumtypes.Atlas `json:"atlas"`
-	Access       string           `json:"access"`
-	SharedEmails []string         `json:"shared_emails"`
-	DateAt       time.Time        `json:"date_at"`
-	IsActive     bool             `json:"is_active"`
+	ID           uuid.UUID    `json:"id"`
+	UserID       uuid.UUID    `json:"user_id"`
+	Title        string       `json:"title"`
+	Slug         string       `json:"slug"`
+	Atlas        types.Atlas  `json:"atlas"`
+	Access       types.Access `json:"access"`
+	SharedEmails []string     `json:"shared_emails"`
+	DateAt       time.Time    `json:"date_at"`
+	IsActive     bool         `json:"is_active"`
 }
 
 func FromDB(a db.Album) Album {
@@ -39,13 +39,13 @@ func FromDB(a db.Album) Album {
 // Raw album in list (stored in cache, standart type)
 
 type AlbumInList struct {
-	ID           uuid.UUID `json:"id"`
-	Title        string    `json:"title"`
-	Slug         string    `json:"slug"`
-	Access       string    `json:"access"`
-	SharedEmails []string  `json:"shared_emails"`
-	DateAt       time.Time `json:"date_at"`
-	IsActive     bool      `json:"is_active"`
+	ID           uuid.UUID    `json:"id"`
+	Title        string       `json:"title"`
+	Slug         string       `json:"slug"`
+	Access       types.Access `json:"access"`
+	SharedEmails []string     `json:"shared_emails"`
+	DateAt       time.Time    `json:"date_at"`
+	IsActive     bool         `json:"is_active"`
 }
 
 func ToAlbumList(albums []Album) []AlbumInList {
@@ -67,10 +67,10 @@ func ToAlbumList(albums []Album) []AlbumInList {
 // Public album (returned to client)
 
 type PublicAlbum struct {
-	Title  string           `json:"title"`
-	Slug   string           `json:"slug"`
-	Atlas  albumtypes.Atlas `json:"atlas"`
-	DateAt time.Time        `json:"date_at"`
+	Title  string      `json:"title"`
+	Slug   string      `json:"slug"`
+	Atlas  types.Atlas `json:"atlas"`
+	DateAt time.Time   `json:"date_at"`
 }
 
 func ToPublic(a Album) PublicAlbum {

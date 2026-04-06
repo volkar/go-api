@@ -81,13 +81,13 @@ func (s *Service) IssueSessionTokens(ctx context.Context, user users.User, meta 
 }
 
 /* Consume refresh token */
-func (s *Service) consumeRefreshToken(ctx context.Context, token string) error {
+func (s *Service) ConsumeRefreshToken(ctx context.Context, token string) error {
 	hash := s.tokens.Hash(token)
 	return s.tokens.ConsumeRefreshByHash(ctx, hash)
 }
 
 /* Consume other refresh tokens (exit from all devices) */
-func (s *Service) consumeOtherRefreshTokens(ctx context.Context, userID uuid.UUID, refresh string) error {
+func (s *Service) ConsumeOtherRefreshTokens(ctx context.Context, userID uuid.UUID, refresh string) error {
 	hash := s.tokens.Hash(refresh)
 	return s.tokens.ConsumeOtherRefreshForUser(ctx, userID, hash)
 }

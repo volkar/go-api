@@ -1,11 +1,6 @@
--- name: GetAvailableAlbumBySlugs :one
-SELECT sqlc.embed(a), sqlc.embed(u) FROM albums a
-JOIN users u ON a.user_id = u.id
-WHERE u.slug = @user_slug AND a.slug = @album_slug AND a.is_active AND a.deleted_at IS NULL AND u.deleted_at IS NULL AND (
-      access = 'public'
-      OR (access = 'shared' AND @viewer_email::text = ANY(shared_emails))
-      OR @viewer_id::uuid = a.user_id::uuid
-  );
+-- name: GetAlbum :one
+SELECT * FROM albums
+WHERE user_id = @user_id AND slug = @album_slug AND deleted_at IS NULL;
 
 -- name: ListAvailableAlbumIDs :many
 SELECT id, date_at
@@ -13,9 +8,9 @@ FROM albums
 WHERE user_id = @user_id
   AND deleted_at IS NULL
   AND (
-      access = 'public'
-      OR (access = 'shared' AND @viewer_email::text = ANY(shared_emails))
-      OR @viewer_id::uuid = @user_id::uuid
+      (access = 'public' AND is_active)
+      OR (access = 'shared' AND is_active AND @viewer_email::text = ANY(shared_emails))
+      OR (@viewer_id::uuid = @user_id::uuid)
   )
   AND (
       sqlc.narg('cursor_date_at')::timestamptz IS NULL
@@ -44,8 +39,8 @@ FROM albums a
 WHERE id = ANY(@ids::uuid[]);
 
 -- name: CreateAlbum :one
-INSERT INTO albums (user_id, title, slug, atlas, access, shared_emails, date_at)
-SELECT u.id, @title, @slug, @atlas, @access, @shared_emails, @date_at
+INSERT INTO albums (user_id, title, slug, atlas, access, is_active, shared_emails, date_at)
+SELECT u.id, @title, @slug, @atlas, @access, @is_active, @shared_emails, @date_at
 FROM users u
 WHERE u.id = @user_id AND u.deleted_at IS NULL
 RETURNING *;

@@ -1,7 +1,7 @@
 package albums
 
 import (
-	"api/internal/domain/albums/albumtypes"
+	"api/internal/domain/shared/types"
 	"api/internal/platform/response"
 	"context"
 	"errors"
@@ -23,23 +23,23 @@ func NewService(repo *Repository) *Service {
 }
 
 /* Get available album by user slug and album slug */
-func (s *Service) GetAvailable(ctx context.Context, userSlug string, albumSlug string, viewerID uuid.UUID, viewerEmail string) (Album, error) {
-	a, err := s.albums.GetAvailable(ctx, userSlug, albumSlug, viewerID, viewerEmail)
+func (s *Service) GetAvailable(ctx context.Context, userID uuid.UUID, albumSlug string, viewerID uuid.UUID, viewerEmail string) (Album, error) {
+	a, err := s.albums.Get(ctx, userID, albumSlug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Album{}, response.ErrAlbumNotFound.Wrap(err)
 		}
 		return Album{}, err
 	}
-	// Album found in cache or DB
-	// If it comes from cache, we need to check access permissions and if album is active
-	isOwner := viewerID == a.UserID
-	if albumtypes.CanAccess(a.Access, a.SharedEmails, viewerEmail, isOwner) == false || a.IsActive == false {
+	// Album found in cache or database. Check access permissions
+	isOwner := viewerID != uuid.Nil && viewerID == a.UserID
+	if !a.IsActive || !a.Access.CanAccess(a.SharedEmails, viewerEmail, isOwner) {
 		return Album{}, response.ErrAlbumNotFound
 	}
 	return a, nil
 }
 
+/* Get list of available albums by user id */
 func (s *Service) ListAvailable(ctx context.Context, userID uuid.UUID, viewerID uuid.UUID, viewerEmail string, cursor string, limit int) ([]AlbumInList, string, error) {
 	if limit <= 0 || limit > 60 {
 		limit = 60
@@ -69,8 +69,8 @@ func (s *Service) ListDeleted(ctx context.Context, userID uuid.UUID, cursor stri
 }
 
 /* Create album */
-func (s *Service) Create(ctx context.Context, userID uuid.UUID, title string, slug string, atlas albumtypes.Atlas, access string, share []string, dateAt time.Time) (Album, error) {
-	a, err := s.albums.Create(ctx, title, slug, atlas, access, share, dateAt, userID)
+func (s *Service) Create(ctx context.Context, userID uuid.UUID, title string, slug string, atlas types.Atlas, access types.Access, share []string, isActive bool, dateAt time.Time) (Album, error) {
+	a, err := s.albums.Create(ctx, title, slug, atlas, access, share, isActive, dateAt, userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
@@ -88,7 +88,7 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, title string, sl
 }
 
 /* Update album */
-func (s *Service) Update(ctx context.Context, userID uuid.UUID, albumID uuid.UUID, title string, slug string, atlas albumtypes.Atlas, access string, sharedEmails []string, dateAt time.Time, isActive bool) (Album, error) {
+func (s *Service) Update(ctx context.Context, userID uuid.UUID, albumID uuid.UUID, title string, slug string, atlas types.Atlas, access types.Access, sharedEmails []string, dateAt time.Time, isActive bool) (Album, error) {
 	a, err := s.albums.Update(ctx, userID, albumID, title, slug, atlas, access, sharedEmails, dateAt, isActive)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

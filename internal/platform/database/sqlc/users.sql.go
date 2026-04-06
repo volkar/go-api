@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 
+	"api/internal/domain/shared/types"
 	"github.com/google/uuid"
 )
 
@@ -18,10 +19,10 @@ RETURNING id, username, email, role, slug, created_at, updated_at, deleted_at
 `
 
 type CreateUserParams struct {
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
-	Slug     string `json:"slug"`
+	Email    string     `json:"email"`
+	Username string     `json:"username"`
+	Role     types.Role `json:"role"`
+	Slug     string     `json:"slug"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {

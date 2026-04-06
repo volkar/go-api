@@ -99,7 +99,7 @@ func main() {
 	limiter := ratelimit.New(redisClient)
 
 	// Cache manager
-	cache := cache.New(redisClient, cfg.Cache.TTL, logger)
+	cache := cache.New(redisClient, cfg.Cache.TTL)
 
 	// Internationalization
 	i18n := i18n.New(cfg.FallbackLang, logger)
@@ -120,19 +120,18 @@ func main() {
 	tokensRepo := tokens.NewRepository(pool)
 	tokenManager := tokens.NewService(cfg.Paseto.SecretKey, tokensRepo, logger)
 
+	// Users package
+	usersRepo := users.NewRepository(pool, cache)
+	usersService := users.NewService(usersRepo, tokenManager)
+	usersHandler := users.NewHandler(usersService, resp, val, cookiesManager)
+
 	// Albums package
 	albumsRepo := albums.NewRepository(pool, cache, cursorManager)
 	albumsService := albums.NewService(albumsRepo)
-	albumsHandler := albums.NewHandler(albumsService, resp, val)
-
-	// Users package
-	usersRepo := users.NewRepository(pool, cache)
-	usersService := users.NewService(usersRepo, albumsService, tokenManager)
-	usersHandler := users.NewHandler(usersService, resp, val, cookiesManager)
+	albumsHandler := albums.NewHandler(albumsService, usersService, resp, val)
 
 	// Admin package
-	adminRepo := admin.NewRepository(pool, cache)
-	adminService := admin.NewService(adminRepo)
+	adminService := admin.NewService(usersService)
 	adminHandler := admin.NewHandler(adminService, resp)
 
 	// Auth package

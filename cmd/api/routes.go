@@ -1,6 +1,7 @@
 package main
 
 import (
+	"api/internal/domain/shared/types"
 	"api/internal/platform/ratelimit"
 	"fmt"
 
@@ -42,7 +43,7 @@ func (app *app) Routes(r *chi.Mux) {
 		r.Get("/me/albums", app.albumsHandler.CurrentAvailableList)
 		r.Get("/me/albums/deleted", app.albumsHandler.CurrentDeletedList)
 		// Users
-		r.Get(fmt.Sprintf("/users/{slug:%s}/albums", SlugRegex), app.usersHandler.AlbumList)
+		r.Get(fmt.Sprintf("/users/{slug:%s}/albums", SlugRegex), app.albumsHandler.AvailableList)
 		r.Get(fmt.Sprintf("/users/{slug:%s}/info", SlugRegex), app.usersHandler.Info)
 		// Albums
 		r.Get(fmt.Sprintf("/albums/{user_slug:%s}/{album_slug:%s}", SlugRegex, SlugRegex), app.albumsHandler.GetAvailable)
@@ -66,7 +67,7 @@ func (app *app) Routes(r *chi.Mux) {
 	// "Admin" rate limit. Admin role required
 	r.Group(func(r chi.Router) {
 		r.Use(app.RateLimit(ratelimit.RuleAdmin))
-		r.Use(app.RequireRole("admin"))
+		r.Use(app.RequireRole(types.RoleAdmin))
 		// Admin routes
 		r.Post(fmt.Sprintf("/admin/users/{uuid:%s}/restore", UUIDRegex), app.adminHandler.RestoreUser)
 		r.Delete(fmt.Sprintf("/admin/users/{uuid:%s}", UUIDRegex), app.adminHandler.PurgeUser)

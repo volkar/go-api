@@ -1,8 +1,10 @@
 package tokens
 
 import (
+	"api/internal/domain/shared/types"
 	db "api/internal/platform/database/sqlc"
 	"api/internal/platform/request"
+	"api/internal/platform/response"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -41,12 +43,6 @@ func NewService(secretKey string, repo *Repository, logger *slog.Logger) *Manage
 type ctxKey string
 
 const userClaimsKey ctxKey = "user"
-
-type UserClaims struct {
-	UserID uuid.UUID
-	Email  string
-	Role   string
-}
 
 /* Generate random refresh token string */
 func (m *Manager) GenerateRefreshString() (string, error) {
@@ -99,7 +95,7 @@ func (m *Manager) DeleteAllRefreshForUser(ctx context.Context, userID uuid.UUID)
 }
 
 /* Create access token string */
-func (m *Manager) CreateAccess(userID uuid.UUID, role string, email string, ttl time.Duration) string {
+func (m *Manager) CreateAccess(userID uuid.UUID, role types.Role, email string, ttl time.Duration) string {
 	token := paseto.NewToken()
 
 	now := time.Now()
@@ -109,42 +105,50 @@ func (m *Manager) CreateAccess(userID uuid.UUID, role string, email string, ttl 
 
 	// Set claims
 	token.SetString("user_id", userID.String())
-	token.SetString("role", role)
+	token.SetString("role", string(role))
 	token.SetString("email", email)
 
 	return token.V4Encrypt(m.key, nil)
 }
 
 /* Parse Paseto access token string */
-func (m *Manager) ParseAccess(tokenStr string) (UserClaims, error) {
+func (m *Manager) ParseAccess(tokenStr string) (types.UserClaims, error) {
 	token, err := m.parser.ParseV4Local(m.key, tokenStr, nil)
 	if err != nil {
-		return UserClaims{}, err
+		return types.UserClaims{}, err
 	}
 
+	// User id
 	userID, err := token.GetString("user_id")
 	if err != nil {
-		return UserClaims{}, err
+		return types.UserClaims{}, err
 	}
-
-	role, err := token.GetString("role")
-	if err != nil {
-		return UserClaims{}, err
-	}
-
-	email, err := token.GetString("email")
-	if err != nil {
-		return UserClaims{}, err
-	}
-
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return UserClaims{}, err
+		return types.UserClaims{}, err
+	}
+	if userUUID == uuid.Nil {
+		return types.UserClaims{}, response.ErrNoClaims
 	}
 
-	return UserClaims{
+	// Role
+	role, err := token.GetString("role")
+	if err != nil {
+		return types.UserClaims{}, err
+	}
+	if types.Role(role) == "" {
+		return types.UserClaims{}, response.ErrNoClaims
+	}
+
+	// Email
+	email, err := token.GetString("email")
+	if err != nil {
+		return types.UserClaims{}, err
+	}
+
+	return types.UserClaims{
 		UserID: userUUID,
-		Role:   role,
+		Role:   types.Role(role),
 		Email:  email,
 	}, nil
 }

@@ -1,13 +1,11 @@
 package users
 
 import (
-	"api/internal/domain/albums"
 	"api/internal/domain/tokens"
 	"api/internal/platform/cookies"
 	"api/internal/platform/request"
 	"api/internal/platform/response"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -28,34 +26,6 @@ func NewHandler(service *Service, response *response.Response, val *validator.Va
 		validator: val,
 		cookies:   cookies,
 	}
-}
-
-/* Get album list by user slug */
-func (h *Handler) AlbumList(w http.ResponseWriter, r *http.Request) {
-	userSlug := chi.URLParam(r, "slug")
-	// Get claims from context
-	claims, _ := tokens.GetClaimsFromContext(r.Context())
-	// Parse pagination parameters
-	query := r.URL.Query()
-	cursor := query.Get("cursor")
-	limit := 50
-	if limitParam := query.Get("limit"); limitParam != "" {
-		if parsed, err := strconv.Atoi(limitParam); err == nil {
-			limit = parsed
-		}
-	}
-	// Get album list
-	a, nextCursor, err := h.users.AlbumList(r.Context(), userSlug, claims.UserID, claims.Email, cursor, limit)
-	if err != nil {
-		h.response.Error(w, r, err)
-		return
-	}
-
-	// Map to public
-	albums := albums.ToPublicAlbumList(a)
-
-	// Return albums
-	h.response.Paginated(w, r, albums, nextCursor)
 }
 
 /* Get authenticated user info */
@@ -103,6 +73,19 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user claims
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+
+	// Check if user have permission
+	if claims.UserID != updatingUserID {
+		h.response.Error(w, r, response.ErrNoPermission)
+		return
+	}
+
 	// JSON decode
 	input := struct {
 		Username string `json:"username" validate:"required,min=2,max=255"`
@@ -119,15 +102,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user claims
-	claims, ok := tokens.GetClaimsFromContext(r.Context())
-	if !ok {
-		h.response.Error(w, r, response.ErrNoClaims)
-		return
-	}
-
 	// Update user
-	u, err := h.users.Update(r.Context(), claims.UserID, updatingUserID, input.Slug, input.Username)
+	u, err := h.users.Update(r.Context(), updatingUserID, input.Slug, input.Username)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return
@@ -138,7 +114,6 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 /* Delete user */
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-
 	// User id from url
 	idStr := chi.URLParam(r, "uuid")
 	deletingUserID, err := uuid.Parse(idStr)
@@ -154,8 +129,14 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if user have permission
+	if claims.UserID != deletingUserID {
+		h.response.Error(w, r, response.ErrNoPermission)
+		return
+	}
+
 	// Delete user
-	_, err = h.users.Delete(r.Context(), claims.UserID, deletingUserID)
+	_, err = h.users.Delete(r.Context(), deletingUserID)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return

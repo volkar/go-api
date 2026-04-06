@@ -124,10 +124,10 @@ Purge user with all albums and tokens. Requires admin role
 For development purposes there is `/cmd/api/routed_playground.go` file with `Playground endpoints`. Should be deleted in production
 
 **GET** `/playground/create_admin`
-Creates `admin` user with 3 albums (public, private and shared for user) (`/users/admin/info` and `/users/admin/albums`)
+Creates `admin` user with 4 albums (public, private, shared for user and inactive) (`/users/admin/info` and `/users/admin/albums`)
 
 **GET** `/playground/create_user`
-Creates `user` user with 3 albums (public, private and shared for admin) (`/users/user/info` and `/users/user/albums`)
+Creates `user` user with 4 albums (public, private, shared for admin and inactive) (`/users/user/info` and `/users/user/albums`)
 
 **GET** `/playground/get_admin_cookies`
 Get access and refresh tokens for admin

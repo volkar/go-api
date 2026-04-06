@@ -19,8 +19,8 @@ type Querier interface {
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (uuid.UUID, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteAllRefreshTokensForUser(ctx context.Context, userID uuid.UUID) error
+	GetAlbum(ctx context.Context, arg GetAlbumParams) (Album, error)
 	GetAlbumsByIDs(ctx context.Context, ids []uuid.UUID) ([]Album, error)
-	GetAvailableAlbumBySlugs(ctx context.Context, arg GetAvailableAlbumBySlugsParams) (GetAvailableAlbumBySlugsRow, error)
 	GetAvailableUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetAvailableUserBySlug(ctx context.Context, slug string) (User, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)

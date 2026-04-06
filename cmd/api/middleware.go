@@ -1,6 +1,7 @@
 package main
 
 import (
+	"api/internal/domain/shared/types"
 	"api/internal/domain/tokens"
 	"api/internal/platform/i18n"
 	"api/internal/platform/ratelimit"
@@ -15,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type responseRecorder struct {
@@ -95,7 +98,7 @@ func (app *app) InsertClaimsToContext(next http.Handler) http.Handler {
 
 		// Validate token integrity and expiration
 		claims, err := app.tokens.ParseAccess(cookie.Value)
-		if err != nil {
+		if err != nil || claims.UserID == uuid.Nil {
 			// Invalid token, continue without claims
 			next.ServeHTTP(w, r)
 			return
@@ -124,7 +127,7 @@ func (app *app) RequireAuthentication(next http.Handler) http.Handler {
 }
 
 /* Require role middleware. Check if user has required role */
-func (app *app) RequireRole(targetRole string) func(next http.Handler) http.Handler {
+func (app *app) RequireRole(targetRole types.Role) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Get claims from context

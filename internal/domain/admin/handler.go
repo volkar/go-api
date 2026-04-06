@@ -38,8 +38,14 @@ func (h *Handler) PurgeUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if admin is not deleting himself
+	if claims.UserID == deletingUserID {
+		h.response.Error(w, r, response.ErrNoPermission)
+		return
+	}
+
 	// Delete user
-	_, err = h.admin.PurgeUser(r.Context(), claims.UserID, claims.Role, deletingUserID)
+	_, err = h.admin.PurgeUser(r.Context(), deletingUserID)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return
@@ -66,8 +72,14 @@ func (h *Handler) RestoreUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if admin is not restoring himself
+	if claims.UserID == restoringUserID {
+		h.response.Error(w, r, response.ErrNoPermission)
+		return
+	}
+
 	// Restoring user
-	_, _, err = h.admin.RestoreUser(r.Context(), claims.UserID, claims.Role, restoringUserID)
+	_, _, err = h.admin.RestoreUser(r.Context(), restoringUserID)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return

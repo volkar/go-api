@@ -7,7 +7,7 @@ package db
 import (
 	"time"
 
-	"api/internal/domain/albums/albumtypes"
+	"api/internal/domain/shared/types"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -16,8 +16,8 @@ type Album struct {
 	ID           uuid.UUID          `json:"id"`
 	Title        string             `json:"title"`
 	DateAt       time.Time          `json:"date_at"`
-	Atlas        albumtypes.Atlas   `json:"atlas"`
-	Access       string             `json:"access"`
+	Atlas        types.Atlas        `json:"atlas"`
+	Access       types.Access       `json:"access"`
 	SharedEmails []string           `json:"shared_emails"`
 	Slug         string             `json:"slug"`
 	IsActive     bool               `json:"is_active"`
@@ -47,7 +47,7 @@ type User struct {
 	ID        uuid.UUID          `json:"id"`
 	Username  string             `json:"username"`
 	Email     string             `json:"email"`
-	Role      string             `json:"role"`
+	Role      types.Role         `json:"role"`
 	Slug      string             `json:"slug"`
 	CreatedAt time.Time          `json:"created_at"`
 	UpdatedAt time.Time          `json:"updated_at"`
