@@ -39,6 +39,26 @@ func (s *Service) GetAvailable(ctx context.Context, userID uuid.UUID, albumSlug 
 	return a, nil
 }
 
+/* Get album by direct token (Bypasses normal Access Control) */
+func (s *Service) GetByDirectToken(ctx context.Context, token uuid.UUID) (Album, error) {
+	a, err := s.albums.GetByDirectToken(ctx, token)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Album{}, response.ErrAlbumNotFound.Wrap(err)
+		}
+		if err.Error() == "album_not_found" {
+			// Error from redis script
+			return Album{}, response.ErrAlbumNotFound.Wrap(err)
+		}
+		return Album{}, err
+	}
+	// Album found in cache or database. Check if it is active
+	if !a.IsActive {
+		return Album{}, response.ErrAlbumNotFound
+	}
+	return a, nil
+}
+
 /* Get list of available albums by user id */
 func (s *Service) ListAvailable(ctx context.Context, userID uuid.UUID, viewerID uuid.UUID, viewerEmail string, cursor string, limit int) ([]AlbumInList, string, error) {
 	if limit <= 0 || limit > 60 {
@@ -69,8 +89,8 @@ func (s *Service) ListDeleted(ctx context.Context, userID uuid.UUID, cursor stri
 }
 
 /* Create album */
-func (s *Service) Create(ctx context.Context, userID uuid.UUID, title string, slug string, atlas types.Atlas, access types.Access, share []string, isActive bool, dateAt time.Time) (Album, error) {
-	a, err := s.albums.Create(ctx, title, slug, atlas, access, share, isActive, dateAt, userID)
+func (s *Service) Create(ctx context.Context, userID uuid.UUID, title string, slug string, cover string, atlas types.Atlas, access types.Access, share []string, isActive bool, dateAt time.Time) (Album, error) {
+	a, err := s.albums.Create(ctx, title, slug, cover, atlas, access, share, isActive, dateAt, userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
@@ -88,8 +108,8 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, title string, sl
 }
 
 /* Update album */
-func (s *Service) Update(ctx context.Context, userID uuid.UUID, albumID uuid.UUID, title string, slug string, atlas types.Atlas, access types.Access, sharedEmails []string, dateAt time.Time, isActive bool) (Album, error) {
-	a, err := s.albums.Update(ctx, userID, albumID, title, slug, atlas, access, sharedEmails, dateAt, isActive)
+func (s *Service) Update(ctx context.Context, userID uuid.UUID, albumID uuid.UUID, title string, slug string, cover string, atlas types.Atlas, access types.Access, sharedEmails []string, dateAt time.Time, isActive bool) (Album, error) {
+	a, err := s.albums.Update(ctx, userID, albumID, title, slug, cover, atlas, access, sharedEmails, dateAt, isActive)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Album not found or user is deleted
@@ -105,6 +125,33 @@ func (s *Service) Update(ctx context.Context, userID uuid.UUID, albumID uuid.UUI
 		return Album{}, err
 	}
 	return a, nil
+}
+
+/* Generate new direct share link for album */
+func (s *Service) GenerateDirectToken(ctx context.Context, userID, albumID uuid.UUID) (uuid.NullUUID, error) {
+	newToken := uuid.NullUUID{UUID: uuid.New(), Valid: true}
+
+	_, err := s.albums.UpdateDirectToken(ctx, userID, albumID, newToken)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Album not found or user is deleted
+			return uuid.NullUUID{}, response.ErrNoPermission.Wrap(err)
+		}
+		return uuid.NullUUID{}, err
+	}
+
+	return newToken, nil
+}
+
+/* Revoke direct share link */
+func (s *Service) RevokeDirectToken(ctx context.Context, userID, albumID uuid.UUID) error {
+	tokenNull := uuid.NullUUID{Valid: false}
+	_, err := s.albums.UpdateDirectToken(ctx, userID, albumID, tokenNull)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Album not found or user is deleted
+		return response.ErrNoPermission.Wrap(err)
+	}
+	return err
 }
 
 /* Delete album */

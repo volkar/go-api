@@ -20,6 +20,7 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteAllRefreshTokensForUser(ctx context.Context, userID uuid.UUID) error
 	GetAlbum(ctx context.Context, arg GetAlbumParams) (Album, error)
+	GetAlbumByDirectToken(ctx context.Context, directToken uuid.NullUUID) (Album, error)
 	GetAlbumsByIDs(ctx context.Context, ids []uuid.UUID) ([]Album, error)
 	GetAvailableUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetAvailableUserBySlug(ctx context.Context, slug string) (User, error)
@@ -33,6 +34,7 @@ type Querier interface {
 	SoftDeleteAlbum(ctx context.Context, arg SoftDeleteAlbumParams) (SoftDeleteAlbumRow, error)
 	SoftDeleteUser(ctx context.Context, userID uuid.UUID) (uuid.UUID, error)
 	UpdateAlbum(ctx context.Context, arg UpdateAlbumParams) (UpdateAlbumRow, error)
+	UpdateAlbumDirectToken(ctx context.Context, arg UpdateAlbumDirectTokenParams) (UpdateAlbumDirectTokenRow, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (UpdateUserRow, error)
 	UpsertUser(ctx context.Context, arg UpsertUserParams) (User, error)
 }

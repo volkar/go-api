@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Cursor struct {
@@ -97,20 +96,20 @@ func (s *Cursor) Decode(encoded string) (time.Time, string, error) {
 	return parsedTime, parts[1], nil
 }
 
-func (s *Cursor) Parse(cursor string) (pgtype.Timestamptz, pgtype.UUID, error) {
-	var cursorDate pgtype.Timestamptz
-	var cursorID pgtype.UUID
+func (s *Cursor) Parse(cursor string) (time.Time, uuid.NullUUID, error) {
+	var cursorDate time.Time
+	var cursorID uuid.NullUUID
 	if cursor != "" {
 		parsedTime, parsedIDStr, err := s.Decode(cursor)
 		if err != nil {
-			return pgtype.Timestamptz{}, pgtype.UUID{}, err
+			return time.Time{}, uuid.NullUUID{}, err
 		}
-		cursorDate = pgtype.Timestamptz{Time: parsedTime, Valid: true}
+		cursorDate = parsedTime
 		uid, err := uuid.Parse(parsedIDStr)
 		if err != nil {
-			return pgtype.Timestamptz{}, pgtype.UUID{}, err
+			return time.Time{}, uuid.NullUUID{}, err
 		}
-		cursorID = pgtype.UUID{Bytes: uid, Valid: true}
+		cursorID = uuid.NullUUID{UUID: uid, Valid: true}
 	}
 	return cursorDate, cursorID, nil
 }

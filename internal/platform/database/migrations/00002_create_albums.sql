@@ -3,10 +3,12 @@
 CREATE TABLE IF NOT EXISTS albums (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     title TEXT NOT NULL,
+    cover TEXT NOT NULL DEFAULT '',
     date_at TIMESTAMPTZ NOT NULL,
     atlas JSONB NOT NULL DEFAULT '[]',
     access TEXT NOT NULL DEFAULT 'private',
     shared_emails TEXT[] NOT NULL DEFAULT '{}',
+    direct_token UUID UNIQUE,
     slug TEXT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT true,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

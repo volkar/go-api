@@ -15,16 +15,17 @@ import (
 )
 
 const createAlbum = `-- name: CreateAlbum :one
-INSERT INTO albums (user_id, title, slug, atlas, access, is_active, shared_emails, date_at)
-SELECT u.id, $1, $2, $3, $4, $5, $6, $7
+INSERT INTO albums (user_id, title, slug, cover, atlas, access, is_active, shared_emails, date_at)
+SELECT u.id, $1, $2, $3, $4, $5, $6, $7, $8
 FROM users u
-WHERE u.id = $8 AND u.deleted_at IS NULL
-RETURNING id, title, date_at, atlas, access, shared_emails, slug, is_active, user_id, created_at, updated_at, deleted_at
+WHERE u.id = $9 AND u.deleted_at IS NULL
+RETURNING id, title, cover, date_at, atlas, access, shared_emails, direct_token, slug, is_active, user_id, created_at, updated_at, deleted_at
 `
 
 type CreateAlbumParams struct {
 	Title        string       `json:"title"`
 	Slug         string       `json:"slug"`
+	Cover        string       `json:"cover"`
 	Atlas        types.Atlas  `json:"atlas"`
 	Access       types.Access `json:"access"`
 	IsActive     bool         `json:"is_active"`
@@ -37,6 +38,7 @@ func (q *Queries) CreateAlbum(ctx context.Context, arg CreateAlbumParams) (Album
 	row := q.db.QueryRow(ctx, createAlbum,
 		arg.Title,
 		arg.Slug,
+		arg.Cover,
 		arg.Atlas,
 		arg.Access,
 		arg.IsActive,
@@ -48,10 +50,12 @@ func (q *Queries) CreateAlbum(ctx context.Context, arg CreateAlbumParams) (Album
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
+		&i.Cover,
 		&i.DateAt,
 		&i.Atlas,
 		&i.Access,
 		&i.SharedEmails,
+		&i.DirectToken,
 		&i.Slug,
 		&i.IsActive,
 		&i.UserID,
@@ -63,7 +67,7 @@ func (q *Queries) CreateAlbum(ctx context.Context, arg CreateAlbumParams) (Album
 }
 
 const getAlbum = `-- name: GetAlbum :one
-SELECT id, title, date_at, atlas, access, shared_emails, slug, is_active, user_id, created_at, updated_at, deleted_at FROM albums
+SELECT id, title, cover, date_at, atlas, access, shared_emails, direct_token, slug, is_active, user_id, created_at, updated_at, deleted_at FROM albums
 WHERE user_id = $1 AND slug = $2 AND deleted_at IS NULL
 `
 
@@ -78,10 +82,39 @@ func (q *Queries) GetAlbum(ctx context.Context, arg GetAlbumParams) (Album, erro
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
+		&i.Cover,
 		&i.DateAt,
 		&i.Atlas,
 		&i.Access,
 		&i.SharedEmails,
+		&i.DirectToken,
+		&i.Slug,
+		&i.IsActive,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getAlbumByDirectToken = `-- name: GetAlbumByDirectToken :one
+SELECT id, title, cover, date_at, atlas, access, shared_emails, direct_token, slug, is_active, user_id, created_at, updated_at, deleted_at FROM albums
+WHERE direct_token = $1 AND is_active AND deleted_at IS NULL
+`
+
+func (q *Queries) GetAlbumByDirectToken(ctx context.Context, directToken uuid.NullUUID) (Album, error) {
+	row := q.db.QueryRow(ctx, getAlbumByDirectToken, directToken)
+	var i Album
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Cover,
+		&i.DateAt,
+		&i.Atlas,
+		&i.Access,
+		&i.SharedEmails,
+		&i.DirectToken,
 		&i.Slug,
 		&i.IsActive,
 		&i.UserID,
@@ -93,7 +126,7 @@ func (q *Queries) GetAlbum(ctx context.Context, arg GetAlbumParams) (Album, erro
 }
 
 const getAlbumsByIDs = `-- name: GetAlbumsByIDs :many
-SELECT id, title, date_at, atlas, access, shared_emails, slug, is_active, user_id, created_at, updated_at, deleted_at
+SELECT id, title, cover, date_at, atlas, access, shared_emails, direct_token, slug, is_active, user_id, created_at, updated_at, deleted_at
 FROM albums a
 WHERE id = ANY($1::uuid[])
 `
@@ -110,10 +143,12 @@ func (q *Queries) GetAlbumsByIDs(ctx context.Context, ids []uuid.UUID) ([]Album,
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
+			&i.Cover,
 			&i.DateAt,
 			&i.Atlas,
 			&i.Access,
 			&i.SharedEmails,
+			&i.DirectToken,
 			&i.Slug,
 			&i.IsActive,
 			&i.UserID,
@@ -178,7 +213,7 @@ type ListAvailableAlbumIDsParams struct {
 	ViewerEmail  string             `json:"viewer_email"`
 	ViewerID     uuid.UUID          `json:"viewer_id"`
 	CursorDateAt pgtype.Timestamptz `json:"cursor_date_at"`
-	CursorID     pgtype.UUID        `json:"cursor_id"`
+	CursorID     uuid.NullUUID      `json:"cursor_id"`
 	Limit        int32              `json:"limit"`
 }
 
@@ -231,7 +266,7 @@ LIMIT $4
 type ListDeletedAlbumIDsParams struct {
 	UserID       uuid.UUID          `json:"user_id"`
 	CursorDateAt pgtype.Timestamptz `json:"cursor_date_at"`
-	CursorID     pgtype.UUID        `json:"cursor_id"`
+	CursorID     uuid.NullUUID      `json:"cursor_id"`
 	Limit        int32              `json:"limit"`
 }
 
@@ -314,7 +349,7 @@ UPDATE albums
 SET deleted_at = NOW(), updated_at = NOW()
 FROM old_data
 WHERE albums.id = old_data.id
-RETURNING albums.id, albums.title, albums.date_at, albums.atlas, albums.access, albums.shared_emails, albums.slug, albums.is_active, albums.user_id, albums.created_at, albums.updated_at, albums.deleted_at, old_data.user_slug
+RETURNING albums.id, albums.title, albums.cover, albums.date_at, albums.atlas, albums.access, albums.shared_emails, albums.direct_token, albums.slug, albums.is_active, albums.user_id, albums.created_at, albums.updated_at, albums.deleted_at, old_data.user_slug
 `
 
 type SoftDeleteAlbumParams struct {
@@ -333,10 +368,12 @@ func (q *Queries) SoftDeleteAlbum(ctx context.Context, arg SoftDeleteAlbumParams
 	err := row.Scan(
 		&i.Album.ID,
 		&i.Album.Title,
+		&i.Album.Cover,
 		&i.Album.DateAt,
 		&i.Album.Atlas,
 		&i.Album.Access,
 		&i.Album.SharedEmails,
+		&i.Album.DirectToken,
 		&i.Album.Slug,
 		&i.Album.IsActive,
 		&i.Album.UserID,
@@ -353,27 +390,29 @@ WITH old_data AS (
   SELECT a.id, a.slug AS old_slug, u.slug AS user_slug
   FROM albums a
   JOIN users u ON a.user_id = u.id
-  WHERE a.id = $8 AND a.user_id = $9 AND a.deleted_at IS NULL AND u.deleted_at IS NULL
+  WHERE a.id = $9 AND a.user_id = $10 AND a.deleted_at IS NULL AND u.deleted_at IS NULL
   FOR UPDATE OF a
 )
 UPDATE albums
 SET
   title = $1,
   slug = $2,
-  atlas = $3,
-  access = $4,
-  shared_emails = $5,
-  date_at = $6,
-  is_active = $7,
+  cover = $3,
+  atlas = $4,
+  access = $5,
+  shared_emails = $6,
+  date_at = $7,
+  is_active = $8,
   updated_at = NOW()
 FROM old_data
 WHERE albums.id = old_data.id
-RETURNING albums.id, albums.title, albums.date_at, albums.atlas, albums.access, albums.shared_emails, albums.slug, albums.is_active, albums.user_id, albums.created_at, albums.updated_at, albums.deleted_at, old_data.old_slug, old_data.user_slug
+RETURNING albums.id, albums.title, albums.cover, albums.date_at, albums.atlas, albums.access, albums.shared_emails, albums.direct_token, albums.slug, albums.is_active, albums.user_id, albums.created_at, albums.updated_at, albums.deleted_at, old_data.old_slug, old_data.user_slug
 `
 
 type UpdateAlbumParams struct {
 	Title        string       `json:"title"`
 	Slug         string       `json:"slug"`
+	Cover        string       `json:"cover"`
 	Atlas        types.Atlas  `json:"atlas"`
 	Access       types.Access `json:"access"`
 	SharedEmails []string     `json:"shared_emails"`
@@ -393,6 +432,7 @@ func (q *Queries) UpdateAlbum(ctx context.Context, arg UpdateAlbumParams) (Updat
 	row := q.db.QueryRow(ctx, updateAlbum,
 		arg.Title,
 		arg.Slug,
+		arg.Cover,
 		arg.Atlas,
 		arg.Access,
 		arg.SharedEmails,
@@ -405,10 +445,12 @@ func (q *Queries) UpdateAlbum(ctx context.Context, arg UpdateAlbumParams) (Updat
 	err := row.Scan(
 		&i.Album.ID,
 		&i.Album.Title,
+		&i.Album.Cover,
 		&i.Album.DateAt,
 		&i.Album.Atlas,
 		&i.Album.Access,
 		&i.Album.SharedEmails,
+		&i.Album.DirectToken,
 		&i.Album.Slug,
 		&i.Album.IsActive,
 		&i.Album.UserID,
@@ -417,6 +459,57 @@ func (q *Queries) UpdateAlbum(ctx context.Context, arg UpdateAlbumParams) (Updat
 		&i.Album.DeletedAt,
 		&i.OldSlug,
 		&i.UserSlug,
+	)
+	return i, err
+}
+
+const updateAlbumDirectToken = `-- name: UpdateAlbumDirectToken :one
+WITH old_data AS (
+  SELECT a.id, a.direct_token AS old_direct_token
+  FROM albums a
+  JOIN users u ON a.user_id = u.id
+  WHERE a.id = $2 AND a.user_id = $3 AND a.deleted_at IS NULL AND u.deleted_at IS NULL
+  FOR UPDATE OF a
+)
+UPDATE albums
+SET
+  direct_token = $1,
+  updated_at = NOW()
+FROM old_data
+WHERE albums.id = old_data.id
+RETURNING albums.id, albums.title, albums.cover, albums.date_at, albums.atlas, albums.access, albums.shared_emails, albums.direct_token, albums.slug, albums.is_active, albums.user_id, albums.created_at, albums.updated_at, albums.deleted_at, old_data.old_direct_token
+`
+
+type UpdateAlbumDirectTokenParams struct {
+	DirectToken uuid.NullUUID `json:"direct_token"`
+	AlbumID     uuid.UUID     `json:"album_id"`
+	UserID      uuid.UUID     `json:"user_id"`
+}
+
+type UpdateAlbumDirectTokenRow struct {
+	Album          Album         `json:"album"`
+	OldDirectToken uuid.NullUUID `json:"old_direct_token"`
+}
+
+func (q *Queries) UpdateAlbumDirectToken(ctx context.Context, arg UpdateAlbumDirectTokenParams) (UpdateAlbumDirectTokenRow, error) {
+	row := q.db.QueryRow(ctx, updateAlbumDirectToken, arg.DirectToken, arg.AlbumID, arg.UserID)
+	var i UpdateAlbumDirectTokenRow
+	err := row.Scan(
+		&i.Album.ID,
+		&i.Album.Title,
+		&i.Album.Cover,
+		&i.Album.DateAt,
+		&i.Album.Atlas,
+		&i.Album.Access,
+		&i.Album.SharedEmails,
+		&i.Album.DirectToken,
+		&i.Album.Slug,
+		&i.Album.IsActive,
+		&i.Album.UserID,
+		&i.Album.CreatedAt,
+		&i.Album.UpdatedAt,
+		&i.Album.DeletedAt,
+		&i.OldDirectToken,
 	)
 	return i, err
 }

@@ -2,6 +2,10 @@
 SELECT * FROM albums
 WHERE user_id = @user_id AND slug = @album_slug AND deleted_at IS NULL;
 
+-- name: GetAlbumByDirectToken :one
+SELECT * FROM albums
+WHERE direct_token = @direct_token AND is_active AND deleted_at IS NULL;
+
 -- name: ListAvailableAlbumIDs :many
 SELECT id, date_at
 FROM albums
@@ -39,8 +43,8 @@ FROM albums a
 WHERE id = ANY(@ids::uuid[]);
 
 -- name: CreateAlbum :one
-INSERT INTO albums (user_id, title, slug, atlas, access, is_active, shared_emails, date_at)
-SELECT u.id, @title, @slug, @atlas, @access, @is_active, @shared_emails, @date_at
+INSERT INTO albums (user_id, title, slug, cover, atlas, access, is_active, shared_emails, date_at)
+SELECT u.id, @title, @slug, @cover, @atlas, @access, @is_active, @shared_emails, @date_at
 FROM users u
 WHERE u.id = @user_id AND u.deleted_at IS NULL
 RETURNING *;
@@ -57,6 +61,7 @@ UPDATE albums
 SET
   title = @title,
   slug = @slug,
+  cover = @cover,
   atlas = @atlas,
   access = @access,
   shared_emails = @shared_emails,
@@ -66,6 +71,22 @@ SET
 FROM old_data
 WHERE albums.id = old_data.id
 RETURNING sqlc.embed(albums), old_data.old_slug, old_data.user_slug;
+
+-- name: UpdateAlbumDirectToken :one
+WITH old_data AS (
+  SELECT a.id, a.direct_token AS old_direct_token
+  FROM albums a
+  JOIN users u ON a.user_id = u.id
+  WHERE a.id = @album_id AND a.user_id = @user_id AND a.deleted_at IS NULL AND u.deleted_at IS NULL
+  FOR UPDATE OF a
+)
+UPDATE albums
+SET
+  direct_token = @direct_token,
+  updated_at = NOW()
+FROM old_data
+WHERE albums.id = old_data.id
+RETURNING sqlc.embed(albums), old_data.old_direct_token;
 
 -- name: SoftDeleteAlbum :one
 WITH old_data AS (

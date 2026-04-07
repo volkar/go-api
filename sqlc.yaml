@@ -12,8 +12,13 @@ sql:
         emit_interface: true
         overrides:
           - db_type: "uuid"
+            nullable: false
             go_type: "github.com/google/uuid.UUID"
+          - db_type: "uuid"
+            nullable: true
+            go_type: "github.com/google/uuid.NullUUID"
           - db_type: "timestamptz"
+            nullable: false
             go_type: "time.Time"
           - column: "albums.access"
             go_type: "api/internal/domain/shared/types.Access"

@@ -62,6 +62,22 @@ func (h *Handler) GetAvailable(w http.ResponseWriter, r *http.Request) {
 	h.response.SuccessDataOnly(w, r, album)
 }
 
+func (h *Handler) GetByDirectToken(w http.ResponseWriter, r *http.Request) {
+	token, err := uuid.Parse(chi.URLParam(r, "direct_token"))
+	if err != nil {
+		h.response.Error(w, r, response.ErrAlbumNotFound)
+		return
+	}
+
+	album, err := h.albums.GetByDirectToken(r.Context(), token)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+
+	h.response.SuccessDataOnly(w, r, ToDirect(album))
+}
+
 /* Get album list by user slug */
 func (h *Handler) AvailableList(w http.ResponseWriter, r *http.Request) {
 	userSlug := chi.URLParam(r, "slug")
@@ -168,6 +184,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Access       types.Access `json:"access" validate:"required"`
 		SharedEmails []string     `json:"shared_emails"`
 		Slug         string       `json:"slug" validate:"required,min=2,max=255,slug"`
+		Cover        string       `json:"cover" validate:"required,url"`
 		DateAt       time.Time    `json:"date_at" validate:"required"`
 		IsActive     bool         `json:"is_active"`
 	}{}
@@ -183,7 +200,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create album
-	album, err := h.albums.Create(r.Context(), claims.UserID, input.Title, input.Slug, input.Atlas, input.Access, input.SharedEmails, input.IsActive, input.DateAt)
+	album, err := h.albums.Create(r.Context(), claims.UserID, input.Title, input.Slug, input.Cover, input.Atlas, input.Access, input.SharedEmails, input.IsActive, input.DateAt)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return
@@ -216,6 +233,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		Access       types.Access `json:"access" validate:"required"`
 		SharedEmails []string     `json:"shared_emails"`
 		Slug         string       `json:"slug" validate:"required,min=2,max=255,slug"`
+		Cover        string       `json:"cover" validate:"required,url"`
 		DateAt       time.Time    `json:"date_at" validate:"required"`
 		IsActive     bool         `json:"is_active"`
 	}{}
@@ -231,13 +249,69 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update album
-	album, err := h.albums.Update(r.Context(), claims.UserID, albumID, input.Title, input.Slug, input.Atlas, input.Access, input.SharedEmails, input.DateAt, input.IsActive)
+	album, err := h.albums.Update(r.Context(), claims.UserID, albumID, input.Title, input.Slug, input.Cover, input.Atlas, input.Access, input.SharedEmails, input.DateAt, input.IsActive)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return
 	}
 
 	h.response.SuccessWithData(w, r, response.SuccessAlbumUpdated, album)
+}
+
+/* Generate direct token */
+func (h *Handler) GenerateDirectToken(w http.ResponseWriter, r *http.Request) {
+	// Get user claims
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+
+	// Album id from url
+	idStr := chi.URLParam(r, "uuid")
+	albumID, err := uuid.Parse(idStr)
+	if err != nil {
+		h.response.Error(w, r, response.ErrBadUUID.Wrap(err))
+		return
+	}
+
+	// Generate direct token
+	token, err := h.albums.GenerateDirectToken(r.Context(), claims.UserID, albumID)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+
+	h.response.SuccessWithData(w, r, response.SuccessDirectTokenGenerated, map[string]string{
+		"direct_token": token.UUID.String(),
+	})
+}
+
+/* Revoke direct token */
+func (h *Handler) RevokeDirectToken(w http.ResponseWriter, r *http.Request) {
+	// Get user claims
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+
+	// Album id from url
+	idStr := chi.URLParam(r, "uuid")
+	albumID, err := uuid.Parse(idStr)
+	if err != nil {
+		h.response.Error(w, r, response.ErrBadUUID.Wrap(err))
+		return
+	}
+
+	// Generate direct token
+	err = h.albums.RevokeDirectToken(r.Context(), claims.UserID, albumID)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+
+	h.response.Success(w, r, response.SuccessDirectTokenRevoked)
 }
 
 /* Delete album */

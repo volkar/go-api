@@ -42,17 +42,41 @@ func (app *app) PlaygroundCreateAdmin(w http.ResponseWriter, r *http.Request) {
 	var adminAtlas = []types.AtlasItem{
 		{
 			Type: "title",
-			Src:  "Album title",
+			Src:  "Inline title",
 		},
 		{
 			Type: "text",
-			Src:  "The woods are lovely, dark and deep",
+			Src:  "The woods are lovely, dark and deep, But I have promises to keep, And miles to go before I sleep, And miles to go before I sleep.",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-1.jpg",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-2.jpg",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-3.jpg",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-4.jpg",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-5.jpg",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-6.jpg",
 		},
 	}
-	app.albumsService.Create(r.Context(), admin.ID, "Admin private album", "private", adminAtlas, types.AccessPrivate, []string{}, true, time.Date(2021, 3, 1, 12, 30, 0, 0, time.UTC))
-	app.albumsService.Create(r.Context(), admin.ID, "Admin public album", "public", adminAtlas, types.AccessPublic, []string{}, true, time.Date(2022, 5, 13, 12, 30, 0, 0, time.UTC))
-	app.albumsService.Create(r.Context(), admin.ID, "Admin shared album", "shared", adminAtlas, types.AccessShared, []string{"user@test.test"}, true, time.Date(2023, 7, 22, 12, 30, 0, 0, time.UTC))
-	app.albumsService.Create(r.Context(), admin.ID, "Admin inactive album", "inactive", adminAtlas, types.AccessPublic, []string{}, false, time.Date(2024, 9, 1, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), admin.ID, "Admin private album", "private", "https://tesseract.syntheticsymbiosis.com/static/tesseract-1.jpg", adminAtlas, types.AccessPrivate, []string{}, true, time.Date(2021, 3, 1, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), admin.ID, "Admin public album", "public", "https://tesseract.syntheticsymbiosis.com/static/tesseract-2.jpg", adminAtlas, types.AccessPublic, []string{}, true, time.Date(2022, 5, 13, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), admin.ID, "Admin shared album", "shared", "https://tesseract.syntheticsymbiosis.com/static/tesseract-3.jpg", adminAtlas, types.AccessShared, []string{"user@test.test"}, true, time.Date(2023, 7, 22, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), admin.ID, "Admin inactive album", "inactive", "https://tesseract.syntheticsymbiosis.com/static/tesseract-1.jpg", adminAtlas, types.AccessPublic, []string{}, false, time.Date(2024, 9, 1, 12, 30, 0, 0, time.UTC))
 
 	app.response.SuccessDataOnly(w, r, map[string]string{
 		"playground": "admin created",
@@ -74,17 +98,41 @@ func (app *app) PlaygroundCreateUser(w http.ResponseWriter, r *http.Request) {
 	var userAtlas = []types.AtlasItem{
 		{
 			Type: "title",
-			Src:  "Album title",
+			Src:  "Inline title",
 		},
 		{
 			Type: "text",
-			Src:  "The woods are lovely, dark and deep",
+			Src:  "The woods are lovely, dark and deep, But I have promises to keep, And miles to go before I sleep, And miles to go before I sleep.",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-1.jpg",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-2.jpg",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-3.jpg",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-4.jpg",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-5.jpg",
+		},
+		{
+			Type: "image",
+			Src:  "https://tesseract.syntheticsymbiosis.com/static/tesseract-6.jpg",
 		},
 	}
-	app.albumsService.Create(r.Context(), user.ID, "User private album", "private", userAtlas, types.AccessPrivate, []string{}, true, time.Date(2021, 3, 1, 12, 30, 0, 0, time.UTC))
-	app.albumsService.Create(r.Context(), user.ID, "User public album", "public", userAtlas, types.AccessPublic, []string{}, true, time.Date(2022, 5, 13, 12, 30, 0, 0, time.UTC))
-	app.albumsService.Create(r.Context(), user.ID, "User shared album", "shared", userAtlas, types.AccessShared, []string{"admin@test.test"}, true, time.Date(2023, 7, 22, 12, 30, 0, 0, time.UTC))
-	app.albumsService.Create(r.Context(), user.ID, "User inactive album", "inactive", userAtlas, types.AccessPublic, []string{}, false, time.Date(2024, 9, 1, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), user.ID, "User private album", "private", "https://tesseract.syntheticsymbiosis.com/static/tesseract-4.jpg", userAtlas, types.AccessPrivate, []string{}, true, time.Date(2021, 3, 1, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), user.ID, "User public album", "public", "https://tesseract.syntheticsymbiosis.com/static/tesseract-5.jpg", userAtlas, types.AccessPublic, []string{}, true, time.Date(2022, 5, 13, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), user.ID, "User shared album", "shared", "https://tesseract.syntheticsymbiosis.com/static/tesseract-6.jpg", userAtlas, types.AccessShared, []string{"admin@test.test"}, true, time.Date(2023, 7, 22, 12, 30, 0, 0, time.UTC))
+	app.albumsService.Create(r.Context(), user.ID, "User inactive album", "inactive", "https://tesseract.syntheticsymbiosis.com/static/tesseract-4.jpg", userAtlas, types.AccessPublic, []string{}, false, time.Date(2024, 9, 1, 12, 30, 0, 0, time.UTC))
 
 	app.response.SuccessDataOnly(w, r, map[string]string{
 		"playground": "user created",

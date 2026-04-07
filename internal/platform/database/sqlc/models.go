@@ -15,10 +15,12 @@ import (
 type Album struct {
 	ID           uuid.UUID          `json:"id"`
 	Title        string             `json:"title"`
+	Cover        string             `json:"cover"`
 	DateAt       time.Time          `json:"date_at"`
 	Atlas        types.Atlas        `json:"atlas"`
 	Access       types.Access       `json:"access"`
 	SharedEmails []string           `json:"shared_emails"`
+	DirectToken  uuid.NullUUID      `json:"direct_token"`
 	Slug         string             `json:"slug"`
 	IsActive     bool               `json:"is_active"`
 	UserID       uuid.UUID          `json:"user_id"`

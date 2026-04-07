@@ -61,7 +61,7 @@ var (
 	ErrTooManyRequests  = &AppError{Code: http.StatusTooManyRequests, Slug: "too_many_requests"}       /* 429 Too Many Requests */
 	ErrNoSecurityHeader = &AppError{Code: http.StatusForbidden, Slug: "no_security_header"}            /* 403 Forbidden */
 	ErrInvalidOrigin    = &AppError{Code: http.StatusForbidden, Slug: "invalid_origin"}                /* 403 Forbidden */
-	ErrInvalidCursor    = &AppError{Code: http.StatusBadRequest, Slug: "invalid_cursor"}                /* 400 Bad Request */
+	ErrInvalidCursor    = &AppError{Code: http.StatusBadRequest, Slug: "invalid_cursor"}               /* 400 Bad Request */
 	ErrUnknown          = &AppError{Code: http.StatusInternalServerError, Slug: "unknown"}             /* 500 Internal Server Error */
 )
 
@@ -73,15 +73,17 @@ type AppSuccess struct {
 }
 
 var (
-	Success                = &AppSuccess{Code: http.StatusOK, Slug: "success"}            /* 200 OK */
-	SuccessAlbumCreated    = &AppSuccess{Code: http.StatusCreated, Slug: "album_created"} /* 201 Created */
-	SuccessAlbumUpdated    = &AppSuccess{Code: http.StatusOK, Slug: "album_updated"}      /* 200 OK */
-	SuccessAlbumDeleted    = &AppSuccess{Code: http.StatusOK, Slug: "album_deleted"}      /* 200 OK */
-	SuccessAlbumRestored   = &AppSuccess{Code: http.StatusOK, Slug: "album_restored"}     /* 200 OK */
-	SuccessAlbumPurged     = &AppSuccess{Code: http.StatusOK, Slug: "album_purged"}       /* 200 OK */
-	SuccessLoggedOut       = &AppSuccess{Code: http.StatusOK, Slug: "logged_out"}         /* 200 OK */
-	SuccessLoggedOutOthers = &AppSuccess{Code: http.StatusOK, Slug: "logged_out_others"}  /* 200 OK */
-	SuccessUserDeleted     = &AppSuccess{Code: http.StatusOK, Slug: "user_deleted"}       /* 200 OK */
-	SuccessUserUpdated     = &AppSuccess{Code: http.StatusOK, Slug: "user_updated"}       /* 200 OK */
-	SuccessUserRestored    = &AppSuccess{Code: http.StatusOK, Slug: "user_restored"}      /* 200 OK */
+	Success                     = &AppSuccess{Code: http.StatusOK, Slug: "success"}                /* 200 OK */
+	SuccessAlbumCreated         = &AppSuccess{Code: http.StatusCreated, Slug: "album_created"}     /* 201 Created */
+	SuccessAlbumUpdated         = &AppSuccess{Code: http.StatusOK, Slug: "album_updated"}          /* 200 OK */
+	SuccessDirectTokenGenerated = &AppSuccess{Code: http.StatusOK, Slug: "direct_token_generated"} /* 200 OK */
+	SuccessDirectTokenRevoked   = &AppSuccess{Code: http.StatusOK, Slug: "direct_token_revoked"}   /* 200 OK */
+	SuccessAlbumDeleted         = &AppSuccess{Code: http.StatusOK, Slug: "album_deleted"}          /* 200 OK */
+	SuccessAlbumRestored        = &AppSuccess{Code: http.StatusOK, Slug: "album_restored"}         /* 200 OK */
+	SuccessAlbumPurged          = &AppSuccess{Code: http.StatusOK, Slug: "album_purged"}           /* 200 OK */
+	SuccessLoggedOut            = &AppSuccess{Code: http.StatusOK, Slug: "logged_out"}             /* 200 OK */
+	SuccessLoggedOutOthers      = &AppSuccess{Code: http.StatusOK, Slug: "logged_out_others"}      /* 200 OK */
+	SuccessUserDeleted          = &AppSuccess{Code: http.StatusOK, Slug: "user_deleted"}           /* 200 OK */
+	SuccessUserUpdated          = &AppSuccess{Code: http.StatusOK, Slug: "user_updated"}           /* 200 OK */
+	SuccessUserRestored         = &AppSuccess{Code: http.StatusOK, Slug: "user_restored"}          /* 200 OK */
 )

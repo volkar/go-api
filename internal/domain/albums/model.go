@@ -15,6 +15,7 @@ type Album struct {
 	UserID       uuid.UUID    `json:"user_id"`
 	Title        string       `json:"title"`
 	Slug         string       `json:"slug"`
+	Cover        string       `json:"cover"`
 	Atlas        types.Atlas  `json:"atlas"`
 	Access       types.Access `json:"access"`
 	SharedEmails []string     `json:"shared_emails"`
@@ -28,6 +29,7 @@ func FromDB(a db.Album) Album {
 		UserID:       a.UserID,
 		Title:        a.Title,
 		Slug:         a.Slug,
+		Cover:        a.Cover,
 		Atlas:        a.Atlas,
 		Access:       a.Access,
 		SharedEmails: a.SharedEmails,
@@ -42,6 +44,7 @@ type AlbumInList struct {
 	ID           uuid.UUID    `json:"id"`
 	Title        string       `json:"title"`
 	Slug         string       `json:"slug"`
+	Cover        string       `json:"cover"`
 	Access       types.Access `json:"access"`
 	SharedEmails []string     `json:"shared_emails"`
 	DateAt       time.Time    `json:"date_at"`
@@ -55,6 +58,7 @@ func ToAlbumList(albums []Album) []AlbumInList {
 			ID:           albums[i].ID,
 			Title:        albums[i].Title,
 			Slug:         albums[i].Slug,
+			Cover:        albums[i].Cover,
 			Access:       albums[i].Access,
 			SharedEmails: albums[i].SharedEmails,
 			DateAt:       albums[i].DateAt,
@@ -69,6 +73,7 @@ func ToAlbumList(albums []Album) []AlbumInList {
 type PublicAlbum struct {
 	Title  string      `json:"title"`
 	Slug   string      `json:"slug"`
+	Cover  string      `json:"cover"`
 	Atlas  types.Atlas `json:"atlas"`
 	DateAt time.Time   `json:"date_at"`
 }
@@ -77,6 +82,25 @@ func ToPublic(a Album) PublicAlbum {
 	return PublicAlbum{
 		Title:  a.Title,
 		Slug:   a.Slug,
+		Cover:  a.Cover,
+		Atlas:  a.Atlas,
+		DateAt: a.DateAt,
+	}
+}
+
+// Direct shared album (returned to client)
+
+type DirectAlbum struct {
+	Title  string      `json:"title"`
+	Cover  string      `json:"cover"`
+	Atlas  types.Atlas `json:"atlas"`
+	DateAt time.Time   `json:"date_at"`
+}
+
+func ToDirect(a Album) DirectAlbum {
+	return DirectAlbum{
+		Title:  a.Title,
+		Cover:  a.Cover,
 		Atlas:  a.Atlas,
 		DateAt: a.DateAt,
 	}
@@ -87,6 +111,7 @@ func ToPublic(a Album) PublicAlbum {
 type PublicAlbumInList struct {
 	Title  string    `json:"title"`
 	Slug   string    `json:"slug"`
+	Cover  string    `json:"cover"`
 	DateAt time.Time `json:"date_at"`
 }
 
@@ -96,6 +121,7 @@ func ToPublicAlbumList(albums []AlbumInList) []PublicAlbumInList {
 		albumsResponse[i] = PublicAlbumInList{
 			Title:  albums[i].Title,
 			Slug:   albums[i].Slug,
+			Cover:  albums[i].Cover,
 			DateAt: albums[i].DateAt,
 		}
 	}

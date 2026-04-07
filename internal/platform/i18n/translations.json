@@ -5,6 +5,8 @@
     "album_deleted": "Album has been successfully deleted",
     "album_restored": "Album has been successfully restored",
     "album_updated": "Album has been successfully updated",
+    "direct_token_generated": "Direct token has been successfully generated",
+    "direct_token_revoked": "Direct token has been successfully revoked",
     "album_purged": "Album has been permanently deleted",
     "logged_out": "You have been successfully logged out",
     "logged_out_others": "You have been successfully logged out from other devices",

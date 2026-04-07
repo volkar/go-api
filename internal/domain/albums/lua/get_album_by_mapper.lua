@@ -1,7 +1,7 @@
-local album_slug_key = KEYS[1]
+local album_mapper_key = KEYS[1]
 local entity_prefix = ARGV[1]
 
-local album_id = redis.call("GET", album_slug_key)
+local album_id = redis.call("GET", album_mapper_key)
 if not album_id then
     return {err = "album_not_found"}
 end

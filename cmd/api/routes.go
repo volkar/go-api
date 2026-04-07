@@ -47,6 +47,7 @@ func (app *app) Routes(r *chi.Mux) {
 		r.Get(fmt.Sprintf("/users/{slug:%s}/info", SlugRegex), app.usersHandler.Info)
 		// Albums
 		r.Get(fmt.Sprintf("/albums/{user_slug:%s}/{album_slug:%s}", SlugRegex, SlugRegex), app.albumsHandler.GetAvailable)
+		r.Get(fmt.Sprintf("/albums/{direct_token:%s}", UUIDRegex), app.albumsHandler.GetByDirectToken)
 	})
 
 	// "Modify" rate limit, authentication required
@@ -60,6 +61,8 @@ func (app *app) Routes(r *chi.Mux) {
 		r.Post("/albums", app.albumsHandler.Create)
 		r.Put(fmt.Sprintf("/albums/{uuid:%s}", UUIDRegex), app.albumsHandler.Update)
 		r.Delete(fmt.Sprintf("/albums/{uuid:%s}", UUIDRegex), app.albumsHandler.Delete)
+		r.Post(fmt.Sprintf("/albums/{uuid:%s}/direct", UUIDRegex), app.albumsHandler.GenerateDirectToken)
+		r.Delete(fmt.Sprintf("/albums/{uuid:%s}/direct", UUIDRegex), app.albumsHandler.RevokeDirectToken)
 		r.Post(fmt.Sprintf("/albums/{uuid:%s}/restore", UUIDRegex), app.albumsHandler.Restore)
 		r.Delete(fmt.Sprintf("/albums/{uuid:%s}/purge", UUIDRegex), app.albumsHandler.Purge)
 	})
