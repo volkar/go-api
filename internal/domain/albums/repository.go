@@ -102,7 +102,7 @@ func (r *Repository) Get(ctx context.Context, userID uuid.UUID, albumSlug string
 func (r *Repository) GetByDirectToken(ctx context.Context, token uuid.UUID) (Album, error) {
 	// Get album from cache
 	a, err := r.getAlbumFromCacheByDirectToken(ctx, token)
-	if err == nil {
+	if err == nil && a.IsActive && a.DirectToken.Valid && a.DirectToken.UUID == token {
 		// Album found in cache, map and return
 		return FromDB(a), nil
 	}
@@ -278,18 +278,12 @@ func (r *Repository) UpdateDirectToken(ctx context.Context, userID uuid.UUID, al
 		return uuid.NullUUID{}, err
 	}
 
-	// Async update album with mapper in cache
-	bgCtx := context.WithoutCancel(ctx)
-	go func(album db.Album, oldToken uuid.NullUUID) {
-		timeoutCtx, cancel := context.WithTimeout(bgCtx, 100*time.Millisecond)
-		defer cancel()
-		// Invalidate album old direct token cache mapper
-		if oldToken.Valid {
-			r.invalidateAlbumDirectTokenCacheOnly(timeoutCtx, oldToken)
-		}
-		// Set new album with mapper to cache
-		r.setAlbumToCache(timeoutCtx, album)
-	}(a.Album, a.OldDirectToken)
+	// We need to update the cache synchronously because the direct token is used to fetch the album
+	if a.OldDirectToken.Valid {
+		r.invalidateAlbumDirectTokenCacheOnly(ctx, a.OldDirectToken)
+	}
+	// Set new album with mapper to cache
+	r.setAlbumToCache(ctx, a.Album)
 
 	// Map and return
 	return a.Album.DirectToken, err
