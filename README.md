@@ -191,7 +191,7 @@ air
 7. Open address in curl or Yaak/Insomnium.
 
 ```
-curl -X GET http://localhost:1337/health
+curl -X GET http://localhost:8000/health
 ```
 
 8. Now you can use `Playground routes` to create `admin` and `user` and test this API.
