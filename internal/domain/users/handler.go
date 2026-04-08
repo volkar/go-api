@@ -89,7 +89,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	// JSON decode
 	input := struct {
 		Username string `json:"username" validate:"required,min=2,max=255"`
-		Slug     string `json:"slug" validate:"required,min=2,max=255,slug,notreserved"`
+		Slug     string `json:"slug" validate:"required,min=3,max=255,slug,notreserved"`
 	}{}
 	if err := request.DecodeJSONBody(w, r, &input); err != nil {
 		h.response.Error(w, r, response.ErrBadJSON.Wrap(err))

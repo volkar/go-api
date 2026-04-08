@@ -106,7 +106,7 @@ Update user info
 **DELETE** `/users/{user_id}`
 Delete user
 
-**POST** `/albums/{album_id}`
+**POST** `/albums`
 Create new album
 
 **PUT** `/albums/{album_id}`

@@ -183,7 +183,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Atlas        types.Atlas  `json:"atlas" validate:"required,min=1,dive"`
 		Access       types.Access `json:"access" validate:"required"`
 		SharedEmails []string     `json:"shared_emails"`
-		Slug         string       `json:"slug" validate:"required,min=2,max=255,slug"`
+		Slug         string       `json:"slug" validate:"required,min=3,max=255,slug"`
 		Cover        string       `json:"cover" validate:"required,url"`
 		DateAt       time.Time    `json:"date_at" validate:"required"`
 		IsActive     bool         `json:"is_active"`
@@ -232,7 +232,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		Atlas        types.Atlas  `json:"atlas" validate:"required,min=1,dive"`
 		Access       types.Access `json:"access" validate:"required"`
 		SharedEmails []string     `json:"shared_emails"`
-		Slug         string       `json:"slug" validate:"required,min=2,max=255,slug"`
+		Slug         string       `json:"slug" validate:"required,min=3,max=255,slug"`
 		Cover        string       `json:"cover" validate:"required,url"`
 		DateAt       time.Time    `json:"date_at" validate:"required"`
 		IsActive     bool         `json:"is_active"`

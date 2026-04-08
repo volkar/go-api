@@ -10,6 +10,14 @@ import (
 
 var slugRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
+var reservedWords = map[string]struct{}{
+	"superadmin": {},
+	"admin":      {},
+	"root":       {},
+	"owner":      {},
+	"dashboard":  {},
+}
+
 func New() *validator.Validate {
 	v := validator.New()
 
@@ -24,8 +32,8 @@ func New() *validator.Validate {
 
 	// Reserved words (black list)
 	v.RegisterValidation("notreserved", func(fl validator.FieldLevel) bool {
-		reserved := map[string]bool{"superadmin": true, "admin": true, "root": true, "owner": true}
-		return !reserved[fl.Field().String()]
+		_, ok := reservedWords[fl.Field().String()]
+		return !ok
 	})
 
 	// Slug rule
