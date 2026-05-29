@@ -256,7 +256,7 @@ func (app *app) run(ctx context.Context, h http.Handler) error {
 		MaxHeaderBytes:    1 << 18,
 	}
 
-	shutdownError := make(chan error)
+	shutdownError := make(chan error, 1)
 
 	go func() {
 		app.logger.Info("Starting server", "addr", app.cfg.Addr)
