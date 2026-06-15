@@ -27,8 +27,8 @@ WHERE users.id = old_data.id
 RETURNING sqlc.embed(users), old_data.slug AS old_slug;
 
 -- name: CreateUser :one
-INSERT INTO users (email, username, role, slug)
-VALUES ($1, $2, $3, $4)
+INSERT INTO users (email, username, role, avatar, slug)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: SoftDeleteUser :one

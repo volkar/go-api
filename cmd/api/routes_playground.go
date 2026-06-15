@@ -29,7 +29,7 @@ func (app *app) RoutesPlayground(r *chi.Mux) {
 
 /* Creates admin with 3 albums */
 func (app *app) PlaygroundCreateAdmin(w http.ResponseWriter, r *http.Request) {
-	admin, err := app.usersService.Create(r.Context(), "admin@test.test", "Almighty Admin", "admin", types.RoleAdmin)
+	admin, err := app.usersService.Create(r.Context(), "admin@test.test", "Almighty Admin", "admin", "", types.RoleAdmin)
 	if err != nil {
 		// User may be already created. Ignore
 		app.response.SuccessDataOnly(w, r, map[string]string{
@@ -85,7 +85,7 @@ func (app *app) PlaygroundCreateAdmin(w http.ResponseWriter, r *http.Request) {
 
 /* Creates user with 3 albums */
 func (app *app) PlaygroundCreateUser(w http.ResponseWriter, r *http.Request) {
-	user, err := app.usersService.Create(r.Context(), "user@test.test", "Just User", "user", types.RoleUser)
+	user, err := app.usersService.Create(r.Context(), "user@test.test", "Just User", "user", "", types.RoleUser)
 	if err != nil {
 		// User may be already created. Ignore
 		app.response.SuccessDataOnly(w, r, map[string]string{

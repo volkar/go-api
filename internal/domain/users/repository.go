@@ -6,6 +6,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -132,14 +133,16 @@ func (r *Repository) Upsert(ctx context.Context, email string, username string, 
 }
 
 /* Create user */
-func (r *Repository) Create(ctx context.Context, email string, username string, slug string, role types.Role) (User, error) {
+func (r *Repository) Create(ctx context.Context, email string, username string, slug string, avatar string, role types.Role) (User, error) {
 	u, err := r.q.CreateUser(ctx, db.CreateUserParams{
 		Username: username,
 		Slug:     slug,
 		Email:    email,
+		Avatar:   avatar,
 		Role:     role,
 	})
 	if err != nil {
+		slog.Error("err", "err", err)
 		return User{}, err
 	}
 
