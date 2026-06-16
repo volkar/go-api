@@ -99,8 +99,8 @@ func (app *app) InsertClaimsToContext(next http.Handler) http.Handler {
 		// Validate token integrity and expiration
 		claims, err := app.tokens.ParseAccess(cookie.Value)
 		if err != nil || claims.UserID == uuid.Nil {
-			// Invalid token, continue without claims
-			next.ServeHTTP(w, r)
+			// Invalid token, return 401 Unauthenticated error
+			app.response.Error(w, r, response.ErrAccessTokenExpired)
 			return
 		}
 

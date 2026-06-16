@@ -41,28 +41,29 @@ func (e *AppError) ChangeStatus(status int) {
 }
 
 var (
-	ErrBadJSON          = &AppError{Code: http.StatusBadRequest, Slug: "bad_json"}                     /* 400 Bad Request */
-	ErrRequestTooLarge  = &AppError{Code: http.StatusRequestEntityTooLarge, Slug: "request_too_large"} /* 413 Request Too Large */
-	ErrBadUUID          = &AppError{Code: http.StatusBadRequest, Slug: "bad_uuid"}                     /* 400 Bad Request */
-	ErrBadProvider      = &AppError{Code: http.StatusBadRequest, Slug: "bad_provider"}                 /* 400 Bad Request */
-	ErrNoClaims         = &AppError{Code: http.StatusUnauthorized, Slug: "no_claims"}                  /* 401 Unauthorized */
-	ErrNoPermission     = &AppError{Code: http.StatusForbidden, Slug: "no_permission"}                 /* 403 Forbidden */
-	ErrTokenConsumed    = &AppError{Code: http.StatusUnauthorized, Slug: "token_consumed"}             /* 401 Unauthorized */
-	ErrTokenExpired     = &AppError{Code: http.StatusUnauthorized, Slug: "token_expired"}              /* 401 Unauthorized */
-	ErrNoRefreshToken   = &AppError{Code: http.StatusForbidden, Slug: "no_refresh_token"}              /* 403 Forbidden */
-	ErrRefreshSession   = &AppError{Code: http.StatusForbidden, Slug: "refresh_session"}               /* 403 Forbidden */
-	ErrOAuthNoEmail     = &AppError{Code: http.StatusBadRequest, Slug: "oauth_no_email"}               /* 400 Bad Request */
-	ErrOAuthNoName      = &AppError{Code: http.StatusBadRequest, Slug: "oauth_no_name"}                /* 400 Bad Request */
-	ErrAlbumNotFound    = &AppError{Code: http.StatusNotFound, Slug: "album_not_found"}                /* 404 Not Found */
-	ErrAlbumsNotFound   = &AppError{Code: http.StatusNotFound, Slug: "albums_not_found"}               /* 404 Not Found */
-	ErrAlbumSlugExists  = &AppError{Code: http.StatusConflict, Slug: "album_slug_exists"}              /* 409 Conflict */
-	ErrUserNotFound     = &AppError{Code: http.StatusNotFound, Slug: "user_not_found"}                 /* 404 Not Found */
-	ErrUserSlugExists   = &AppError{Code: http.StatusConflict, Slug: "user_slug_exists"}               /* 409 Conflict */
-	ErrTooManyRequests  = &AppError{Code: http.StatusTooManyRequests, Slug: "too_many_requests"}       /* 429 Too Many Requests */
-	ErrNoSecurityHeader = &AppError{Code: http.StatusForbidden, Slug: "no_security_header"}            /* 403 Forbidden */
-	ErrInvalidOrigin    = &AppError{Code: http.StatusForbidden, Slug: "invalid_origin"}                /* 403 Forbidden */
-	ErrInvalidCursor    = &AppError{Code: http.StatusBadRequest, Slug: "invalid_cursor"}               /* 400 Bad Request */
-	ErrUnknown          = &AppError{Code: http.StatusInternalServerError, Slug: "unknown"}             /* 500 Internal Server Error */
+	ErrBadJSON            = &AppError{Code: http.StatusBadRequest, Slug: "bad_json"}                     /* 400 Bad Request */
+	ErrRequestTooLarge    = &AppError{Code: http.StatusRequestEntityTooLarge, Slug: "request_too_large"} /* 413 Request Too Large */
+	ErrBadUUID            = &AppError{Code: http.StatusBadRequest, Slug: "bad_uuid"}                     /* 400 Bad Request */
+	ErrBadProvider        = &AppError{Code: http.StatusBadRequest, Slug: "bad_provider"}                 /* 400 Bad Request */
+	ErrAccessTokenExpired = &AppError{Code: http.StatusUnauthorized, Slug: "access_token_expired"}       /* 401 Unauthorized */
+	ErrNoClaims           = &AppError{Code: http.StatusUnauthorized, Slug: "no_claims"}                  /* 401 Unauthorized */
+	ErrNoPermission       = &AppError{Code: http.StatusForbidden, Slug: "no_permission"}                 /* 403 Forbidden */
+	ErrTokenConsumed      = &AppError{Code: http.StatusUnauthorized, Slug: "token_consumed"}             /* 401 Unauthorized */
+	ErrTokenExpired       = &AppError{Code: http.StatusUnauthorized, Slug: "token_expired"}              /* 401 Unauthorized */
+	ErrNoRefreshToken     = &AppError{Code: http.StatusForbidden, Slug: "no_refresh_token"}              /* 403 Forbidden */
+	ErrRefreshSession     = &AppError{Code: http.StatusForbidden, Slug: "refresh_session"}               /* 403 Forbidden */
+	ErrOAuthNoEmail       = &AppError{Code: http.StatusBadRequest, Slug: "oauth_no_email"}               /* 400 Bad Request */
+	ErrOAuthNoName        = &AppError{Code: http.StatusBadRequest, Slug: "oauth_no_name"}                /* 400 Bad Request */
+	ErrAlbumNotFound      = &AppError{Code: http.StatusNotFound, Slug: "album_not_found"}                /* 404 Not Found */
+	ErrAlbumsNotFound     = &AppError{Code: http.StatusNotFound, Slug: "albums_not_found"}               /* 404 Not Found */
+	ErrAlbumSlugExists    = &AppError{Code: http.StatusConflict, Slug: "album_slug_exists"}              /* 409 Conflict */
+	ErrUserNotFound       = &AppError{Code: http.StatusNotFound, Slug: "user_not_found"}                 /* 404 Not Found */
+	ErrUserSlugExists     = &AppError{Code: http.StatusConflict, Slug: "user_slug_exists"}               /* 409 Conflict */
+	ErrTooManyRequests    = &AppError{Code: http.StatusTooManyRequests, Slug: "too_many_requests"}       /* 429 Too Many Requests */
+	ErrNoSecurityHeader   = &AppError{Code: http.StatusForbidden, Slug: "no_security_header"}            /* 403 Forbidden */
+	ErrInvalidOrigin      = &AppError{Code: http.StatusForbidden, Slug: "invalid_origin"}                /* 403 Forbidden */
+	ErrInvalidCursor      = &AppError{Code: http.StatusBadRequest, Slug: "invalid_cursor"}               /* 400 Bad Request */
+	ErrUnknown            = &AppError{Code: http.StatusInternalServerError, Slug: "unknown"}             /* 500 Internal Server Error */
 )
 
 // Response messages

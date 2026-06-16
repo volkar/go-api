@@ -14,6 +14,7 @@
     "user_updated": "User account has been successfully updated",
     "user_restored": "User account has been successfully restored",
     "err_no_claims": "Session expired or invalid access token",
+    "err_access_token_expired": "Access token expired. Please refresh token",
     "err_no_permission": "Access denied: you don't have the required permissions",
     "err_no_refresh_token": "Your session has expired, please log in again",
     "err_refresh_session": "Unable to refresh session. Please re-authenticate",
