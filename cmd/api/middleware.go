@@ -88,9 +88,16 @@ func (app *app) ETagChecker(next http.Handler) http.Handler {
 /* Parse and validate access token and insert user claims to context middleware */
 func (app *app) InsertClaimsToContext(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip access token validation entirely for the refresh endpoint
+		// Let the handler itself deal with the refresh_token
+		if r.URL.Path == "/auth/refresh" || r.URL.Path == "/auth/logout" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Get token from cookie
 		cookie, err := r.Cookie("access_token")
-		if err != nil {
+		if err != nil || cookie.Value == "" {
 			// No token, continue without claims
 			next.ServeHTTP(w, r)
 			return
@@ -99,9 +106,16 @@ func (app *app) InsertClaimsToContext(next http.Handler) http.Handler {
 		// Validate token integrity and expiration
 		claims, err := app.tokens.ParseAccess(cookie.Value)
 		if err != nil || claims.UserID == uuid.Nil {
-			// Invalid token, return 401 Unauthenticated error
-			app.response.Error(w, r, response.ErrAccessTokenExpired)
-			return
+			if strings.HasPrefix(r.URL.Path, "/auth/") {
+				// Token expired, allow for auth routes
+				next.ServeHTTP(w, r)
+				return
+			} else {
+				// Invalid token, return 401 Unauthenticated error
+				app.cookies.UnsetAccessCookie(w)
+				app.response.Error(w, r, response.ErrAccessTokenExpired)
+				return
+			}
 		}
 
 		// Insert user claims to context

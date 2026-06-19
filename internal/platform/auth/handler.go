@@ -138,6 +138,9 @@ func (h *Handler) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	// Get old refresh token
 	refreshCookie, err := r.Cookie("refresh_token")
 	if err != nil {
+		// Delete all cookies
+		h.cookies.UnsetAccessCookie(w)
+		h.cookies.UnsetRefreshCookie(w)
 		h.response.Error(w, r, response.ErrNoRefreshToken.Wrap(err))
 		return
 	}
@@ -148,6 +151,9 @@ func (h *Handler) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	// Exchange old refresh token
 	newAccess, newRefresh, err := h.auth.RotateRefreshToken(r.Context(), oldRefreshToken, meta)
 	if err != nil {
+		// Delete all cookies
+		h.cookies.UnsetAccessCookie(w)
+		h.cookies.UnsetRefreshCookie(w)
 		h.response.Error(w, r, err)
 		return
 	}

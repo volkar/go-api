@@ -62,6 +62,30 @@ func (h *Handler) GetAvailable(w http.ResponseWriter, r *http.Request) {
 	h.response.SuccessDataOnly(w, r, album)
 }
 
+// Get any owned album by id
+func (h *Handler) GetOwned(w http.ResponseWriter, r *http.Request) {
+	// Get claims from context
+	claims, ok := tokens.GetClaimsFromContext(r.Context())
+	if !ok {
+		h.response.Error(w, r, response.ErrNoClaims)
+		return
+	}
+	albumID, err := uuid.Parse(chi.URLParam(r, "uuid"))
+	if err != nil {
+		h.response.Error(w, r, response.ErrAlbumNotFound)
+		return
+	}
+
+	// Get owned album
+	a, err := h.albums.GetOwned(r.Context(), claims.UserID, albumID)
+	if err != nil {
+		h.response.Error(w, r, err)
+		return
+	}
+
+	h.response.SuccessDataOnly(w, r, a)
+}
+
 func (h *Handler) GetByDirectToken(w http.ResponseWriter, r *http.Request) {
 	token, err := uuid.Parse(chi.URLParam(r, "direct_token"))
 	if err != nil {
@@ -99,7 +123,7 @@ func (h *Handler) AvailableList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Get album list
-	a, nextCursor, err := h.albums.ListAvailable(r.Context(), user.ID, claims.UserID, claims.Email, cursor, limit)
+	a, nextCursor, err := h.albums.ListAvailable(r.Context(), user.ID, claims.Email, cursor, limit)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return
@@ -113,7 +137,7 @@ func (h *Handler) AvailableList(w http.ResponseWriter, r *http.Request) {
 }
 
 /* Get authenticated user's album list */
-func (h *Handler) CurrentAvailableList(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) OwnedList(w http.ResponseWriter, r *http.Request) {
 	// Get claims from context
 	claims, ok := tokens.GetClaimsFromContext(r.Context())
 	if !ok {
@@ -131,8 +155,8 @@ func (h *Handler) CurrentAvailableList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get owned list of albums
-	albums, nextCursor, err := h.albums.ListAvailable(r.Context(), claims.UserID, claims.UserID, claims.Email, cursor, limit)
+	// Get list of owned albums
+	albums, nextCursor, err := h.albums.ListOwned(r.Context(), claims.UserID, cursor, limit)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return
@@ -141,7 +165,7 @@ func (h *Handler) CurrentAvailableList(w http.ResponseWriter, r *http.Request) {
 }
 
 /* Get authenticated user's list of deleted albums */
-func (h *Handler) CurrentDeletedList(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) TrashedList(w http.ResponseWriter, r *http.Request) {
 	// Get claims from context
 	claims, ok := tokens.GetClaimsFromContext(r.Context())
 	if !ok {
@@ -160,7 +184,7 @@ func (h *Handler) CurrentDeletedList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get owned list of deleted albums
-	albums, nextCursor, err := h.albums.ListDeleted(r.Context(), claims.UserID, cursor, limit)
+	albums, nextCursor, err := h.albums.ListTrashed(r.Context(), claims.UserID, cursor, limit)
 	if err != nil {
 		h.response.Error(w, r, err)
 		return

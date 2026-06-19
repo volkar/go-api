@@ -233,7 +233,7 @@ func (app *app) PlaygroundGetAdminCookies(w http.ResponseWriter, r *http.Request
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refresh,
-		Path:     "/auth",
+		Path:     "/",
 		HttpOnly: true,
 		Secure:   app.cfg.Cookie.Secure,
 		SameSite: app.cfg.Cookie.SameSite,
@@ -269,7 +269,7 @@ func (app *app) PlaygroundClearCookies(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Path:     "/auth",
+		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 	})

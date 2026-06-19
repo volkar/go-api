@@ -1,6 +1,10 @@
--- name: GetAlbum :one
+-- name: GetAlbumBySlug :one
 SELECT * FROM albums
 WHERE user_id = @user_id AND slug = @album_slug AND deleted_at IS NULL;
+
+-- name: GetAlbum :one
+SELECT * FROM albums
+WHERE id = @album_id AND user_id = @user_id;
 
 -- name: GetAlbumByDirectToken :one
 SELECT * FROM albums
@@ -14,7 +18,6 @@ WHERE user_id = @user_id
   AND (
       (access = 'public' AND is_active)
       OR (access = 'shared' AND is_active AND @viewer_email::text = ANY(shared_emails))
-      OR (@viewer_id::uuid = @user_id::uuid)
   )
   AND (
       sqlc.narg('cursor_date_at')::timestamptz IS NULL
@@ -24,7 +27,20 @@ WHERE user_id = @user_id
 ORDER BY date_at DESC, id DESC
 LIMIT sqlc.arg('limit');
 
--- name: ListDeletedAlbumIDs :many
+-- name: ListOwnedAlbumIDs :many
+SELECT id, date_at
+FROM albums
+WHERE user_id = @user_id
+  AND deleted_at IS NULL
+  AND (
+      sqlc.narg('cursor_date_at')::timestamptz IS NULL
+      OR date_at < sqlc.narg('cursor_date_at')::timestamptz
+      OR (date_at = sqlc.narg('cursor_date_at')::timestamptz AND id < sqlc.narg('cursor_id')::uuid)
+  )
+ORDER BY date_at DESC, id DESC
+LIMIT sqlc.arg('limit');
+
+-- name: ListTrashedAlbumIDs :many
 SELECT id, date_at
 FROM albums
 WHERE user_id = @user_id

@@ -21,6 +21,7 @@ type Querier interface {
 	DeleteAllRefreshTokensForUser(ctx context.Context, userID uuid.UUID) error
 	GetAlbum(ctx context.Context, arg GetAlbumParams) (Album, error)
 	GetAlbumByDirectToken(ctx context.Context, directToken uuid.NullUUID) (Album, error)
+	GetAlbumBySlug(ctx context.Context, arg GetAlbumBySlugParams) (Album, error)
 	GetAlbumsByIDs(ctx context.Context, ids []uuid.UUID) ([]Album, error)
 	GetAvailableUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetAvailableUserBySlug(ctx context.Context, slug string) (User, error)
@@ -28,7 +29,8 @@ type Querier interface {
 	HardDeleteAlbum(ctx context.Context, arg HardDeleteAlbumParams) (uuid.UUID, error)
 	HardDeleteUser(ctx context.Context, userID uuid.UUID) (uuid.UUID, error)
 	ListAvailableAlbumIDs(ctx context.Context, arg ListAvailableAlbumIDsParams) ([]ListAvailableAlbumIDsRow, error)
-	ListDeletedAlbumIDs(ctx context.Context, arg ListDeletedAlbumIDsParams) ([]ListDeletedAlbumIDsRow, error)
+	ListOwnedAlbumIDs(ctx context.Context, arg ListOwnedAlbumIDsParams) ([]ListOwnedAlbumIDsRow, error)
+	ListTrashedAlbumIDs(ctx context.Context, arg ListTrashedAlbumIDsParams) ([]ListTrashedAlbumIDsRow, error)
 	RestoreAlbum(ctx context.Context, arg RestoreAlbumParams) (uuid.UUID, error)
 	RestoreUser(ctx context.Context, userID uuid.UUID) (RestoreUserRow, error)
 	SoftDeleteAlbum(ctx context.Context, arg SoftDeleteAlbumParams) (SoftDeleteAlbumRow, error)

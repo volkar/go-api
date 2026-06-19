@@ -24,7 +24,7 @@ func NewService(repo *Repository) *Service {
 
 /* Get available album by user slug and album slug */
 func (s *Service) GetAvailable(ctx context.Context, userID uuid.UUID, albumSlug string, viewerID uuid.UUID, viewerEmail string) (Album, error) {
-	a, err := s.albums.Get(ctx, userID, albumSlug)
+	a, err := s.albums.GetBySlug(ctx, userID, albumSlug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Album{}, response.ErrAlbumNotFound.Wrap(err)
@@ -34,6 +34,22 @@ func (s *Service) GetAvailable(ctx context.Context, userID uuid.UUID, albumSlug 
 	// Album found in cache or database. Check access permissions
 	isOwner := viewerID != uuid.Nil && viewerID == a.UserID
 	if !a.IsActive || !a.Access.CanAccess(a.SharedEmails, viewerEmail, isOwner) {
+		return Album{}, response.ErrAlbumNotFound
+	}
+	return a, nil
+}
+
+/* Get owned album by user id and album id */
+func (s *Service) GetOwned(ctx context.Context, userID uuid.UUID, albumID uuid.UUID) (Album, error) {
+	a, err := s.albums.GetByID(ctx, albumID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Album{}, response.ErrAlbumNotFound.Wrap(err)
+		}
+		return Album{}, err
+	}
+	// Album found in cache or database. Check ownership
+	if a.UserID == userID {
 		return Album{}, response.ErrAlbumNotFound
 	}
 	return a, nil
@@ -60,12 +76,27 @@ func (s *Service) GetByDirectToken(ctx context.Context, token uuid.UUID) (Album,
 }
 
 /* Get list of available albums by user id */
-func (s *Service) ListAvailable(ctx context.Context, userID uuid.UUID, viewerID uuid.UUID, viewerEmail string, cursor string, limit int) ([]AlbumInList, string, error) {
+func (s *Service) ListAvailable(ctx context.Context, userID uuid.UUID, viewerEmail string, cursor string, limit int) ([]AlbumInList, string, error) {
 	if limit <= 0 || limit > 60 {
 		limit = 60
 	}
 
-	a, nextCursor, err := s.albums.ListAvailable(ctx, userID, viewerID, viewerEmail, cursor, int32(limit))
+	a, nextCursor, err := s.albums.ListAvailable(ctx, userID, viewerEmail, cursor, int32(limit))
+	if err != nil {
+		return []AlbumInList{}, "", err
+	}
+	// Map Albums to AlbumInList
+	albums := ToAlbumList(a)
+	return albums, nextCursor, nil
+}
+
+/* Get list of all owned albums by user id */
+func (s *Service) ListOwned(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]AlbumInList, string, error) {
+	if limit <= 0 || limit > 60 {
+		limit = 60
+	}
+
+	a, nextCursor, err := s.albums.ListOwned(ctx, userID, cursor, int32(limit))
 	if err != nil {
 		return []AlbumInList{}, "", err
 	}
@@ -75,11 +106,11 @@ func (s *Service) ListAvailable(ctx context.Context, userID uuid.UUID, viewerID 
 }
 
 /* Get list of deleted albums by user id */
-func (s *Service) ListDeleted(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]AlbumInList, string, error) {
+func (s *Service) ListTrashed(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]AlbumInList, string, error) {
 	if limit <= 0 || limit > 60 {
 		limit = 60
 	}
-	a, nextCursor, err := s.albums.ListDeleted(ctx, userID, cursor, int32(limit))
+	a, nextCursor, err := s.albums.ListTrashed(ctx, userID, cursor, int32(limit))
 	if err != nil {
 		return []AlbumInList{}, "", err
 	}

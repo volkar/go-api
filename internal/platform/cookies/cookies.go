@@ -23,6 +23,7 @@ func New(secure bool, sameSite http.SameSite, accessTTL time.Duration, refreshTT
 
 /* Set access token cookie */
 func (m *Manager) SetAccessCookie(w http.ResponseWriter, access string) {
+	// RefreshTTL for access cookie, frontend can now receive 401 from backend when access token expires
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",
 		Value:    access,
@@ -30,7 +31,7 @@ func (m *Manager) SetAccessCookie(w http.ResponseWriter, access string) {
 		HttpOnly: true,
 		Secure:   m.secure,
 		SameSite: m.sameSite,
-		MaxAge:   int(m.accessTTL.Seconds()),
+		MaxAge:   int(m.refreshTTL.Seconds()),
 	})
 }
 
@@ -39,7 +40,7 @@ func (m *Manager) SetRefreshCookie(w http.ResponseWriter, refresh string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refresh,
-		Path:     "/auth",
+		Path:     "/",
 		HttpOnly: true,
 		Secure:   m.secure,
 		SameSite: m.sameSite,
@@ -63,7 +64,7 @@ func (m *Manager) UnsetRefreshCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Path:     "/auth",
+		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 	})

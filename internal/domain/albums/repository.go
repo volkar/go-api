@@ -58,9 +58,9 @@ var getAlbumByMapperLua string
 var getAlbumByMapperScript = redis.NewScript(getAlbumByMapperLua)
 
 /* Get non deleted album by user id and album slug */
-func (r *Repository) Get(ctx context.Context, userID uuid.UUID, albumSlug string) (Album, error) {
+func (r *Repository) GetBySlug(ctx context.Context, userID uuid.UUID, albumSlug string) (Album, error) {
 	// Get album from cache
-	a, err := r.getAlbumFromCache(ctx, userID, albumSlug)
+	a, err := r.getAlbumFromCacheBySlug(ctx, userID, albumSlug)
 	if err == nil {
 		// Album found in cache, map and return
 		return FromDB(a), nil
@@ -70,9 +70,49 @@ func (r *Repository) Get(ctx context.Context, userID uuid.UUID, albumSlug string
 	// Use singleflight to prevent Cache Stampede
 	sfKey := "sf:album:slugs:" + userID.String() + ":" + albumSlug
 	val, err, _ := albumSlugsGroup.Do(sfKey, func() (any, error) {
-		album, dbErr := r.q.GetAlbum(ctx, db.GetAlbumParams{
+		album, dbErr := r.q.GetAlbumBySlug(ctx, db.GetAlbumBySlugParams{
 			UserID:    userID,
 			AlbumSlug: albumSlug,
+		})
+		if dbErr != nil {
+			return db.Album{}, err
+		}
+
+		// Async set album with mappers to cache
+		bgCtx := context.WithoutCancel(ctx)
+		go func(album db.Album) {
+			timeoutCtx, cancel := context.WithTimeout(bgCtx, 100*time.Millisecond)
+			defer cancel()
+			r.setAlbumToCache(timeoutCtx, album)
+		}(album)
+
+		// Return album
+		return album, nil
+	})
+
+	if err != nil {
+		return Album{}, err
+	}
+
+	// Map and return
+	return FromDB(val.(db.Album)), nil
+}
+
+/* Get album by user id and album id */
+func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (Album, error) {
+	// Get album from cache
+	a, err := r.getAlbumFromCache(ctx, id)
+	if err == nil {
+		// Album found in cache, map and return
+		return FromDB(a), nil
+	}
+
+	// Not found in cache, get album from database.
+	// Use singleflight to prevent Cache Stampede
+	sfKey := "sf:album:id:" + id.String()
+	val, err, _ := albumSlugsGroup.Do(sfKey, func() (any, error) {
+		album, dbErr := r.q.GetAlbum(ctx, db.GetAlbumParams{
+			AlbumID: id,
 		})
 		if dbErr != nil {
 			return db.Album{}, err
@@ -137,8 +177,8 @@ func (r *Repository) GetByDirectToken(ctx context.Context, token uuid.UUID) (Alb
 	return FromDB(val.(db.Album)), nil
 }
 
-/* Get list of paginated albums by user id */
-func (r *Repository) ListAvailable(ctx context.Context, userID uuid.UUID, viewerID uuid.UUID, viewerEmail string, cursor string, limit int32) ([]Album, string, error) {
+/* Get paginated list of available albums by user id */
+func (r *Repository) ListAvailable(ctx context.Context, userID uuid.UUID, viewerEmail string, cursor string, limit int32) ([]Album, string, error) {
 	// Parse secure cursor
 	cursorDate, cursorID, err := r.cursorManager.Parse(cursor)
 	if err != nil {
@@ -149,7 +189,6 @@ func (r *Repository) ListAvailable(ctx context.Context, userID uuid.UUID, viewer
 	fetchLimit := limit + 1
 	dbRows, err := r.q.ListAvailableAlbumIDs(ctx, db.ListAvailableAlbumIDsParams{
 		UserID:       userID,
-		ViewerID:     viewerID,
 		ViewerEmail:  viewerEmail,
 		CursorDateAt: pgtype.Timestamptz{Time: cursorDate, Valid: cursor != ""},
 		CursorID:     cursorID,
@@ -171,8 +210,8 @@ func (r *Repository) ListAvailable(ctx context.Context, userID uuid.UUID, viewer
 	return r.hydrateAlbumsList(ctx, idRows, limit)
 }
 
-/* Get list of paginated albums by user id */
-func (r *Repository) ListDeleted(ctx context.Context, userID uuid.UUID, cursor string, limit int32) ([]Album, string, error) {
+/* Get paginated list of owned albums by user id */
+func (r *Repository) ListOwned(ctx context.Context, userID uuid.UUID, cursor string, limit int32) ([]Album, string, error) {
 	// Parse secure cursor
 	cursorDate, cursorID, err := r.cursorManager.Parse(cursor)
 	if err != nil {
@@ -181,7 +220,39 @@ func (r *Repository) ListDeleted(ctx context.Context, userID uuid.UUID, cursor s
 
 	// Fetch list of IDs from database
 	fetchLimit := limit + 1
-	dbRows, err := r.q.ListDeletedAlbumIDs(ctx, db.ListDeletedAlbumIDsParams{
+	dbRows, err := r.q.ListOwnedAlbumIDs(ctx, db.ListOwnedAlbumIDsParams{
+		UserID:       userID,
+		CursorDateAt: pgtype.Timestamptz{Time: cursorDate, Valid: cursor != ""},
+		CursorID:     cursorID,
+		Limit:        fetchLimit,
+	})
+	if err != nil {
+		return []Album{}, "", err
+	}
+
+	// Map sqlc specific type to our common pagination row
+	idRows := make([]albumPaginationRow, len(dbRows))
+	for i, row := range dbRows {
+		idRows[i] = albumPaginationRow{
+			ID:     row.ID,
+			DateAt: row.DateAt,
+		}
+	}
+
+	return r.hydrateAlbumsList(ctx, idRows, limit)
+}
+
+/* Get paginated list of trashed albums by user id */
+func (r *Repository) ListTrashed(ctx context.Context, userID uuid.UUID, cursor string, limit int32) ([]Album, string, error) {
+	// Parse secure cursor
+	cursorDate, cursorID, err := r.cursorManager.Parse(cursor)
+	if err != nil {
+		return []Album{}, "", response.ErrInvalidCursor.Wrap(err)
+	}
+
+	// Fetch list of IDs from database
+	fetchLimit := limit + 1
+	dbRows, err := r.q.ListTrashedAlbumIDs(ctx, db.ListTrashedAlbumIDsParams{
 		UserID:       userID,
 		CursorDateAt: pgtype.Timestamptz{Time: cursorDate, Valid: cursor != ""},
 		CursorID:     cursorID,
@@ -408,7 +479,7 @@ func (r *Repository) hydrateAlbumsList(ctx context.Context, idRows []albumPagina
 }
 
 /* Get album from cache by user id and album slug */
-func (r *Repository) getAlbumFromCache(ctx context.Context, userID uuid.UUID, albumSlug string) (db.Album, error) {
+func (r *Repository) getAlbumFromCacheBySlug(ctx context.Context, userID uuid.UUID, albumSlug string) (db.Album, error) {
 	res, err := r.cache.RunScript(ctx, getAlbumByMapperScript,
 		[]string{CachePrefixMapper + userID.String() + ":" + albumSlug},
 		CachePrefixEntity,
@@ -423,6 +494,18 @@ func (r *Repository) getAlbumFromCache(ctx context.Context, userID uuid.UUID, al
 	}
 
 	return album, nil
+}
+
+/* Get album from cache by album id */
+func (r *Repository) getAlbumFromCache(ctx context.Context, id uuid.UUID) (db.Album, error) {
+	var a db.Album
+	err := r.cache.Get(ctx, CachePrefixEntity+id.String(), &a)
+
+	if err != nil {
+		return db.Album{}, err
+	}
+
+	return a, nil
 }
 
 /* Get album from cache by direct token */

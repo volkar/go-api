@@ -29,7 +29,7 @@ func NewHandler(service *Service, response *response.Response, val *validator.Va
 }
 
 /* Get authenticated user info */
-func (h *Handler) CurrentInfo(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	// Get claims from context
 	claims, ok := tokens.GetClaimsFromContext(r.Context())
 	if !ok {

@@ -76,10 +76,13 @@ Deletes all other refresh tokens from database (logout from other devices)
 Authenticated user info
 
 **GET** `/me/albums`
-Authenticated user list of albums
+Authenticated user list of all albums
 
-**GET** `/me/albums/deleted`
-Authenticated user list of deleted albums
+**GET** `/me/albums/trashed`
+Authenticated user list of trashed albums
+
+**GET** `/me/album/{album_id}`
+Authenticated user any album
 
 ## Data endpoints
 
@@ -90,7 +93,7 @@ Simple health check
 Get user info by user slug
 
 **GET** `/users/{user_slug}/albums`
-Get user list of albums by user slug
+Get user list of available albums by user slug
 
 **GET** `/albums/{user_slug}/{album_slug}`
 Get the album data from user slug and album slug
