@@ -49,7 +49,7 @@ func (s *Service) GetOwned(ctx context.Context, userID uuid.UUID, albumID uuid.U
 		return Album{}, err
 	}
 	// Album found in cache or database. Check ownership
-	if a.UserID == userID {
+	if a.UserID != userID {
 		return Album{}, response.ErrAlbumNotFound
 	}
 	return a, nil
