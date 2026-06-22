@@ -251,26 +251,28 @@ func (r *Repository) ListTrashed(ctx context.Context, userID uuid.UUID, cursor s
 
 	// Fetch list of IDs from database
 	fetchLimit := limit + 1
-	dbRows, err := r.q.ListTrashedAlbumIDs(ctx, db.ListTrashedAlbumIDsParams{
-		UserID:       userID,
-		CursorDateAt: pgtype.Timestamptz{Time: cursorDate, Valid: cursor != ""},
-		CursorID:     cursorID,
-		Limit:        fetchLimit,
+	albums, err := r.q.ListTrashedAlbums(ctx, db.ListTrashedAlbumsParams{
+		UserID:          userID,
+		CursorDeletedAt: pgtype.Timestamptz{Time: cursorDate, Valid: cursor != ""},
+		CursorID:        cursorID,
+		Limit:           fetchLimit,
 	})
 	if err != nil {
 		return []Album{}, "", err
 	}
 
-	// Map sqlc specific type to our common pagination row
-	idRows := make([]albumPaginationRow, len(dbRows))
-	for i, row := range dbRows {
-		idRows[i] = albumPaginationRow{
-			ID:     row.ID,
-			DateAt: row.DateAt,
-		}
+	// Calculate next cursor if needed
+	var nextCursor string
+	if len(albums) == int(fetchLimit) {
+		albums = albums[:limit]
+		lastItem := albums[len(albums)-1]
+		nextCursor, _ = r.cursorManager.Encode(lastItem.DeletedAt.Time, lastItem.ID.String())
 	}
 
-	return r.hydrateAlbumsList(ctx, idRows, limit)
+	// Map albums
+	mappedAlbums := FromDBList(albums)
+
+	return mappedAlbums, nextCursor, nil
 }
 
 /* Create album */

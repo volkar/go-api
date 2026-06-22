@@ -105,7 +105,7 @@ func (s *Service) ListOwned(ctx context.Context, userID uuid.UUID, cursor string
 	return albums, nextCursor, nil
 }
 
-/* Get list of deleted albums by user id */
+/* Get list of trashed albums by user id */
 func (s *Service) ListTrashed(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]AlbumInList, string, error) {
 	if limit <= 0 || limit > 60 {
 		limit = 60

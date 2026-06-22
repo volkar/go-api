@@ -30,7 +30,7 @@ type Querier interface {
 	HardDeleteUser(ctx context.Context, userID uuid.UUID) (uuid.UUID, error)
 	ListAvailableAlbumIDs(ctx context.Context, arg ListAvailableAlbumIDsParams) ([]ListAvailableAlbumIDsRow, error)
 	ListOwnedAlbumIDs(ctx context.Context, arg ListOwnedAlbumIDsParams) ([]ListOwnedAlbumIDsRow, error)
-	ListTrashedAlbumIDs(ctx context.Context, arg ListTrashedAlbumIDsParams) ([]ListTrashedAlbumIDsRow, error)
+	ListTrashedAlbums(ctx context.Context, arg ListTrashedAlbumsParams) ([]Album, error)
 	RestoreAlbum(ctx context.Context, arg RestoreAlbumParams) (uuid.UUID, error)
 	RestoreUser(ctx context.Context, userID uuid.UUID) (RestoreUserRow, error)
 	SoftDeleteAlbum(ctx context.Context, arg SoftDeleteAlbumParams) (SoftDeleteAlbumRow, error)

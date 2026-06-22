@@ -329,36 +329,31 @@ func (q *Queries) ListOwnedAlbumIDs(ctx context.Context, arg ListOwnedAlbumIDsPa
 	return items, nil
 }
 
-const listTrashedAlbumIDs = `-- name: ListTrashedAlbumIDs :many
-SELECT id, date_at
+const listTrashedAlbums = `-- name: ListTrashedAlbums :many
+SELECT id, title, cover, date_at, atlas, access, shared_emails, direct_token, slug, is_active, user_id, created_at, updated_at, deleted_at
 FROM albums
 WHERE user_id = $1
   AND deleted_at IS NOT NULL
   AND (
       $2::timestamptz IS NULL
-      OR date_at < $2::timestamptz
-      OR (date_at = $2::timestamptz AND id < $3::uuid)
+      OR deleted_at < $2::timestamptz
+      OR (deleted_at = $2::timestamptz AND id < $3::uuid)
   )
-ORDER BY date_at DESC, id DESC
+ORDER BY deleted_at DESC, id DESC
 LIMIT $4
 `
 
-type ListTrashedAlbumIDsParams struct {
-	UserID       uuid.UUID          `json:"user_id"`
-	CursorDateAt pgtype.Timestamptz `json:"cursor_date_at"`
-	CursorID     uuid.NullUUID      `json:"cursor_id"`
-	Limit        int32              `json:"limit"`
+type ListTrashedAlbumsParams struct {
+	UserID          uuid.UUID          `json:"user_id"`
+	CursorDeletedAt pgtype.Timestamptz `json:"cursor_deleted_at"`
+	CursorID        uuid.NullUUID      `json:"cursor_id"`
+	Limit           int32              `json:"limit"`
 }
 
-type ListTrashedAlbumIDsRow struct {
-	ID     uuid.UUID `json:"id"`
-	DateAt time.Time `json:"date_at"`
-}
-
-func (q *Queries) ListTrashedAlbumIDs(ctx context.Context, arg ListTrashedAlbumIDsParams) ([]ListTrashedAlbumIDsRow, error) {
-	rows, err := q.db.Query(ctx, listTrashedAlbumIDs,
+func (q *Queries) ListTrashedAlbums(ctx context.Context, arg ListTrashedAlbumsParams) ([]Album, error) {
+	rows, err := q.db.Query(ctx, listTrashedAlbums,
 		arg.UserID,
-		arg.CursorDateAt,
+		arg.CursorDeletedAt,
 		arg.CursorID,
 		arg.Limit,
 	)
@@ -366,10 +361,25 @@ func (q *Queries) ListTrashedAlbumIDs(ctx context.Context, arg ListTrashedAlbumI
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListTrashedAlbumIDsRow
+	var items []Album
 	for rows.Next() {
-		var i ListTrashedAlbumIDsRow
-		if err := rows.Scan(&i.ID, &i.DateAt); err != nil {
+		var i Album
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Cover,
+			&i.DateAt,
+			&i.Atlas,
+			&i.Access,
+			&i.SharedEmails,
+			&i.DirectToken,
+			&i.Slug,
+			&i.IsActive,
+			&i.UserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

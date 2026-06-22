@@ -38,6 +38,23 @@ func FromDB(a db.Album) Album {
 	}
 }
 
+func FromDBList(albums []db.Album) []Album {
+	albumsResponse := make([]Album, len(albums))
+	for i := range albums {
+		albumsResponse[i] = Album{
+			ID:           albums[i].ID,
+			Title:        albums[i].Title,
+			Slug:         albums[i].Slug,
+			Cover:        albums[i].Cover,
+			Access:       albums[i].Access,
+			SharedEmails: albums[i].SharedEmails,
+			DateAt:       albums[i].DateAt,
+			IsActive:     albums[i].IsActive,
+		}
+	}
+	return albumsResponse
+}
+
 // Raw album in list (stored in cache, standart type)
 
 type AlbumInList struct {

@@ -40,17 +40,17 @@ WHERE user_id = @user_id
 ORDER BY date_at DESC, id DESC
 LIMIT sqlc.arg('limit');
 
--- name: ListTrashedAlbumIDs :many
-SELECT id, date_at
+-- name: ListTrashedAlbums :many
+SELECT *
 FROM albums
 WHERE user_id = @user_id
   AND deleted_at IS NOT NULL
   AND (
-      sqlc.narg('cursor_date_at')::timestamptz IS NULL
-      OR date_at < sqlc.narg('cursor_date_at')::timestamptz
-      OR (date_at = sqlc.narg('cursor_date_at')::timestamptz AND id < sqlc.narg('cursor_id')::uuid)
+      sqlc.narg('cursor_deleted_at')::timestamptz IS NULL
+      OR deleted_at < sqlc.narg('cursor_deleted_at')::timestamptz
+      OR (deleted_at = sqlc.narg('cursor_deleted_at')::timestamptz AND id < sqlc.narg('cursor_id')::uuid)
   )
-ORDER BY date_at DESC, id DESC
+ORDER BY deleted_at DESC, id DESC
 LIMIT sqlc.arg('limit');
 
 -- name: GetAlbumsByIDs :many
