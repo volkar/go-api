@@ -44,7 +44,10 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.response.SuccessDataOnly(w, r, u)
+	// Map user
+	mappedUser := ToMe(u)
+
+	h.response.SuccessDataOnly(w, r, mappedUser)
 }
 
 /* Get user info by user slug */
